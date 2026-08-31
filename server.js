@@ -110,10 +110,10 @@ const imageStorage = multer.diskStorage({
 });
 
 const upload = multer({ storage: imageStorage });
-const uploadImage = upload; // For company settings & products
+const uploadImage = upload;
 
 // 2. GST Lookup API
-app.get('/api/gst-lookup/:gstin', (req, res) => {
+app.get(['/api/gst-lookup/:gstin', '/api/fetch-gst/:gstin'], (req, res) => {
   const gstin = (req.params.gstin || '').toUpperCase().trim();
 
   const GST_STATE_CODES = {
@@ -187,13 +187,23 @@ app.post('/api/company-settings', uploadImage.fields([{ name: 'companyLogo', max
   }
 });
 
-// 4. Dealer Authentication
+// 4. Dealer Authentication & Profile
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  if ((username || '').toLowerCase() === 'admin' && password === 'Admin@123') {
+    res.json({ success: true, token: 'admin-auth-token-shailputri' });
+  } else {
+    res.json({ success: false, message: 'Invalid admin credentials' });
+  }
+});
+
 app.post('/api/login', (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.json({ success: false, message: "Username & Password required" });
 
-    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username.trim());
+    const cleanUser = username.trim().replace(/^@/, '');
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(cleanUser, '@' + cleanUser);
     if (!retailer) return res.json({ success: false, message: "Dealer not found!" });
 
     let isMatch = false;
@@ -229,12 +239,13 @@ app.post('/api/signup', (req, res) => {
     const { businessName, username, password, phone, address, state, gstin } = req.body;
     if (!username || !password) return res.json({ success: false, message: "Username & Password required" });
 
-    const existing = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username.trim());
+    const cleanUser = username.trim().replace(/^@/, '');
+    const existing = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(cleanUser, '@' + cleanUser);
     if (existing) return res.json({ success: false, message: "Username already exists! Please login." });
 
     const hashedPassword = bcrypt.hashSync(password, 10);
     db.prepare('INSERT INTO retailers (business_name, username, password_hash, phone, address, state, gstin, scheme_name, discount_percent, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(businessName || 'Dealer', username.trim(), hashedPassword, phone || '', address || '', state || 'Bihar', gstin || '', 'Regular', 0, 0);
+      .run(businessName || 'Dealer', cleanUser, hashedPassword, phone || '', address || '', state || 'Bihar', gstin || '', 'Regular', 0, 0);
 
     res.json({ success: true, message: "Registration successful! Please login." });
   } catch (err) {
@@ -247,7 +258,8 @@ app.post('/api/forgot-password', (req, res) => {
     const { username, phone, newPassword } = req.body;
     if (!username || !phone || !newPassword) return res.json({ success: false, message: "All fields are required!" });
 
-    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username.trim());
+    const cleanUser = username.trim().replace(/^@/, '');
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(cleanUser, '@' + cleanUser);
     if (!retailer) return res.json({ success: false, message: "User not found!" });
 
     const userPhoneClean = (retailer.phone || '').replace(/\D/g, '').slice(-10);
@@ -258,7 +270,7 @@ app.post('/api/forgot-password', (req, res) => {
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE retailers SET password_hash = ? WHERE LOWER(username) = LOWER(?)').run(hashedPassword, username.trim());
+    db.prepare('UPDATE retailers SET password_hash = ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(hashedPassword, cleanUser, '@' + cleanUser);
 
     res.json({ success: true, message: "Password reset successfully!" });
   } catch (err) {
@@ -266,15 +278,48 @@ app.post('/api/forgot-password', (req, res) => {
   }
 });
 
+app.post('/api/profile/update', (req, res) => {
+  try {
+    const { username, businessName, phone, address, state, gstin } = req.body;
+    const cleanUser = (username || '').trim().replace(/^@/, '');
+    db.prepare('UPDATE retailers SET business_name = ?, phone = ?, address = ?, state = ?, gstin = ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)')
+      .run(businessName, phone, address, state, gstin, cleanUser, '@' + cleanUser);
+    res.json({ success: true, message: 'Profile updated successfully!' });
+  } catch(e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/retailers', (req, res) => {
+  try {
+    const list = db.prepare('SELECT id, business_name, username, phone, address, state, gstin, scheme_name, discount_percent, credit_limit FROM retailers').all() || [];
+    res.json(list);
+  } catch(e) {
+    res.json([]);
+  }
+});
+
+app.post('/api/retailers/update-scheme', (req, res) => {
+  try {
+    const { id, schemeName, discountPercent, creditLimit, state, gstin } = req.body;
+    db.prepare('UPDATE retailers SET scheme_name = ?, discount_percent = ?, credit_limit = ?, state = ?, gstin = ? WHERE id = ?')
+      .run(schemeName, parseInt(discountPercent) || 0, parseInt(creditLimit) || 0, state, gstin, id);
+    res.json({ success: true, message: 'Dealer details saved!' });
+  } catch(e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
 // 5. Products APIs
 app.get('/api/products', (req, res) => {
   try {
-    const username = req.query.username || '';
+    const rawUser = req.query.username || '';
+    const cleanUser = rawUser.trim().replace(/^@/, '');
     const products = db.prepare('SELECT * FROM products').all() || [];
     let discountPercent = 0, schemeName = "Regular (0%)", creditLimit = 0;
 
-    if (username) {
-      const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
+    if (cleanUser) {
+      const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(cleanUser, '@' + cleanUser);
       if (retailer) {
         discountPercent = retailer.discount_percent || 0;
         schemeName = `${retailer.scheme_name || "Regular"} (${discountPercent}%)`;
@@ -326,6 +371,30 @@ app.delete('/api/products/:id', (req, res) => {
   res.json({ success: true, message: 'Product deleted!' });
 });
 
+app.put('/api/products/:id', upload.single('image'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category, price, stock, hsn, gst_rate } = req.body;
+
+    let query = `UPDATE products SET name = ?, category = ?, price = ?, stock = ?, hsn = ?, gst_rate = ?`;
+    let params = [name, category, parseInt(price) || 0, parseInt(stock) || 0, hsn || '1006', parseInt(gst_rate) || 5];
+
+    if (req.file) {
+      query += `, image_url = ?`;
+      params.push(`images/${req.file.filename}`);
+    }
+
+    query += ` WHERE id = ?`;
+    params.push(id);
+
+    db.prepare(query).run(...params);
+    res.json({ success: true, message: 'Product & Image updated successfully' });
+  } catch (err) {
+    console.error('Update Product Error:', err);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
 // 6. Orders APIs
 app.get('/api/orders', (req, res) => {
   try {
@@ -333,7 +402,8 @@ app.get('/api/orders', (req, res) => {
     const retailers = db.prepare('SELECT * FROM retailers').all() || [];
 
     const enrichedOrders = rawOrders.map(o => {
-      const uMatch = retailers.find(r => (r.username || '').toLowerCase() === (o.username || '').toLowerCase());
+      const cleanOrderUser = (o.username || '').replace(/^@/, '').toLowerCase();
+      const uMatch = retailers.find(r => (r.username || '').replace(/^@/, '').toLowerCase() === cleanOrderUser);
       return {
         id: o.id,
         items: o.items,
@@ -364,6 +434,7 @@ app.post('/api/orders', (req, res) => {
   try {
     const { items, total, username, paymentMode, shippingAddress, shippingPhone, shippingState } = req.body;
     const createdAt = new Date().toISOString();
+    const cleanUser = (username || '').trim().replace(/^@/, '');
     const finalShipTo = shippingAddress || 'Same as Billing Address';
     const finalShipPhone = shippingPhone || '';
     const finalShipState = shippingState || 'Bihar';
@@ -402,11 +473,11 @@ app.post('/api/orders', (req, res) => {
     }
 
     if (paymentMode === 'Credit') {
-      const retailer = db.prepare('SELECT credit_limit FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
+      const retailer = db.prepare('SELECT credit_limit FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(cleanUser, '@' + cleanUser);
       if (!retailer || (retailer.credit_limit < total)) {
         return res.json({ success: false, message: 'Insufficient Credit Limit!' });
       }
-      db.prepare('UPDATE retailers SET credit_limit = credit_limit - ? WHERE LOWER(username) = LOWER(?)').run(total, username);
+      db.prepare('UPDATE retailers SET credit_limit = credit_limit - ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(total, cleanUser, '@' + cleanUser);
     }
 
     for (const pid of Object.keys(demandMap)) {
@@ -420,7 +491,7 @@ app.post('/api/orders', (req, res) => {
 
     const payStatus = (paymentMode === 'Credit') ? 'Unpaid' : 'Paid';
     const result = db.prepare('INSERT INTO orders (items, total, created_at, status, username, payment_mode, payment_status, shipping_address, shipping_phone, shipping_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(JSON.stringify(items), total, createdAt, 'Pending', username || '', paymentMode || 'Online', payStatus, finalShipTo, finalShipPhone, finalShipState);
+      .run(JSON.stringify(items), total, createdAt, 'Pending', cleanUser, paymentMode || 'Online', payStatus, finalShipTo, finalShipPhone, finalShipState);
 
     res.json({ success: true, orderId: result.lastInsertRowid });
   } catch (err) {
@@ -428,7 +499,6 @@ app.post('/api/orders', (req, res) => {
   }
 });
 
-// Safe Cancel Order (Restores Stock & Credit)
 app.post('/api/orders/:id/cancel', (req, res) => {
   try {
     const orderId = Number(req.params.id);
@@ -437,14 +507,13 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     if (!order) return res.json({ success: false, message: "Order not found" });
     if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
 
-    // Restore Credit Limit
     if (order.payment_mode === 'Credit' && order.username) {
+      const cleanUser = order.username.replace(/^@/, '');
       try {
-        db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
+        db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(order.total, cleanUser, '@' + cleanUser);
       } catch(e) {}
     }
 
-    // Safely Restore Inventory Stock
     try {
       const items = JSON.parse(order.items || '[]');
       items.forEach(item => {
@@ -461,32 +530,16 @@ app.post('/api/orders/:id/cancel', (req, res) => {
   }
 });
 
-// API to update product with new image
-app.put('/api/products/:id', upload.single('image'), (req, res) => {
+app.post('/api/orders/:id/return', (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, category, price, moq, unit, stock, description } = req.body;
-
-    let query = `UPDATE products SET name = ?, category = ?, price = ?, stock = ?`;
-    let params = [name, category, parseInt(price) || 0, parseInt(stock) || 0];
-
-    if (req.file) {
-      query += `, image_url = ?`;
-      params.push(`images/${req.file.filename}`);
-    }
-
-    query += ` WHERE id = ?`;
-    params.push(id);
-
-    db.prepare(query).run(...params);
-    res.json({ success: true, message: 'Product & Image updated successfully' });
+    const orderId = Number(req.params.id);
+    db.prepare("UPDATE orders SET status = 'Return Requested' WHERE id = ?").run(orderId);
+    res.json({ success: true, message: "Return request submitted successfully" });
   } catch (err) {
-    console.error('Update Product Error:', err);
-    res.status(500).json({ error: 'Failed to update product' });
+    res.json({ success: false, message: err.message });
   }
 });
 
-// 7. Update Order Status API (Fixes "Server error while updating order status")
 app.post('/api/orders/:id/status', (req, res) => {
   try {
     const orderId = Number(req.params.id);
@@ -501,11 +554,11 @@ app.post('/api/orders/:id/status', (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    // Agar status Cancelled ya Returned kiya jaye toh Credit Limit aur Stock restore karein
     if ((status === 'Cancelled' || status === 'Returned') && order.status !== status) {
       if (order.payment_mode === 'Credit' && order.username) {
+        const cleanUser = order.username.replace(/^@/, '');
         try {
-          db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
+          db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(order.total, cleanUser, '@' + cleanUser);
         } catch(e) {}
       }
 
@@ -527,7 +580,7 @@ app.post('/api/orders/:id/status', (req, res) => {
   }
 });
 
-// 8. Dealer Credit Statement & Safe Ledger API
+// 7. Statement, Repayments & Profile Me
 app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], (req, res) => {
   try {
     let rawUser = req.query.username || req.params.username || '';
@@ -589,7 +642,6 @@ app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], 
   }
 });
 
-// 9. Dealer Credit Repayment API
 app.post(['/api/retailers/repay-credit', '/api/repay-credit'], (req, res) => {
   try {
     let { username, amount } = req.body;
@@ -609,7 +661,6 @@ app.post(['/api/retailers/repay-credit', '/api/repay-credit'], (req, res) => {
   }
 });
 
-// 10. Retailer Me / Profile Fetch API
 app.get('/api/retailers/me', (req, res) => {
   try {
     let rawUser = req.query.username || '';
@@ -631,4 +682,9 @@ app.get('/api/retailers/me', (req, res) => {
   } catch(e) {
     res.json({ success: false });
   }
+});
+
+// 8. Start Server (CRITICAL)
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
