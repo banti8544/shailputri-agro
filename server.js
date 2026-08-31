@@ -100,19 +100,15 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+const imageStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `prod_${Date.now()}_${Math.round(Math.random() * 1E9)}${ext}`);
   }
 });
-const upload = multer({ storage });
 
-// 2. GST Proxy Lookup API
-app.get('/api/fetch-gst/:gstin', async (req, res) => {
-  const gstin = (req.params.gstin || '').trim().toUpperCase();
-  if (!gstin || gstin.length < 2) return res.json({ success: false, message: 'Invalid GSTIN' });
+const upload = multer({ storage: imageStorage });
 
   const GST_STATE_CODES = {
     "01": "Jammu & Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
