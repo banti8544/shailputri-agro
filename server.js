@@ -528,84 +528,107 @@ app.post('/api/orders/:id/status', (req, res) => {
 });
 
 // 8. Dealer Credit Statement & Safe Ledger API
-app.get('/api/credit-statement/:username', (req, res) => {
+app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], (req, res) => {
   try {
-    // Agar username me @ laga ho toh use saaf karein
-    let username = (req.params.username || '').trim().replace(/^@/, '');
-    
+    let rawUser = req.query.username || req.params.username || '';
+    let username = rawUser.trim().replace(/^@/, '');
+
     if (!username) {
-      return res.json({ success: false, message: 'Username required' });
+      return res.json({ success: false, message: 'Username required', orders: [], repayments: [] });
     }
 
-    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(username, '@' + username);
-    
+    const cleanUser = username.toLowerCase();
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = ? OR LOWER(username) = ? LIMIT 1').get(cleanUser, '@' + cleanUser);
+
     if (!retailer) {
-      return res.json({ success: false, message: 'Dealer profile not found' });
+      return res.json({ success: false, message: 'Dealer not found', orders: [], repayments: [] });
     }
 
-    const cleanUser = retailer.username;
     const assignedLimit = Number(retailer.credit_limit) || 0;
 
-    let creditOrders = [];
+    let orders = [];
     try {
-      creditOrders = db.prepare(`
-        SELECT id, total, created_at, 'Credit Order' as type 
+      orders = db.prepare(`
+        SELECT id, total, created_at, status, payment_mode
         FROM orders 
-        WHERE (LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)) AND payment_mode = 'Credit' AND status != 'Cancelled'
+        WHERE (LOWER(username) = ? OR LOWER(username) = ?) AND payment_mode = 'Credit' AND status != 'Cancelled'
         ORDER BY id DESC
       `).all(cleanUser, '@' + cleanUser) || [];
     } catch(e) {
-      creditOrders = [];
+      orders = [];
     }
 
     let repayments = [];
     try {
       repayments = db.prepare(`
-        SELECT id, amount as total, created_at, 'Repayment' as type 
+        SELECT id, amount, created_at 
         FROM credit_repayments 
-        WHERE (LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?))
+        WHERE LOWER(username) = ? OR LOWER(username) = ?
         ORDER BY id DESC
       `).all(cleanUser, '@' + cleanUser) || [];
     } catch(e) {
       repayments = [];
     }
 
-    const transactions = [...creditOrders, ...repayments].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-    const totalCreditUsed = creditOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const totalRepaid = repayments.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+    const totalCreditUsed = orders.reduce((sum, o) => (o.status !== 'Returned' ? sum + (Number(o.total) || 0) : sum), 0);
+    const totalRepaid = repayments.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
     const currentUsed = Math.max(0, totalCreditUsed - totalRepaid);
     const availableLimit = Math.max(0, assignedLimit - currentUsed);
 
-    return res.json({
+    res.json({
       success: true,
+      orders: orders,
+      repayments: repayments,
       totalLimit: assignedLimit,
       usedLimit: currentUsed,
-      availableLimit: availableLimit,
-      history: transactions
+      availableLimit: availableLimit
     });
   } catch (err) {
     console.error('Statement error:', err);
-    return res.json({ success: false, message: 'Failed to load statement' });
+    res.json({ success: false, message: 'Failed to load statement', orders: [], repayments: [] });
   }
 });
+
 // 9. Dealer Credit Repayment API
-app.post('/api/repay-credit', (req, res) => {
+app.post(['/api/retailers/repay-credit', '/api/repay-credit'], (req, res) => {
   try {
-    const { username, amount } = req.body;
+    let { username, amount } = req.body;
+    let cleanUser = (username || '').trim().replace(/^@/, '').toLowerCase();
     const numAmount = parseInt(amount, 10);
-    if (!username || !numAmount || numAmount <= 0) {
+
+    if (!cleanUser || !numAmount || numAmount <= 0) {
       return res.json({ success: false, message: 'Invalid payment amount' });
     }
 
     const createdAt = new Date().toISOString();
-    db.prepare('INSERT INTO credit_repayments (username, amount, created_at) VALUES (?, ?, ?)').run(username.trim(), numAmount, createdAt);
+    db.prepare('INSERT INTO credit_repayments (username, amount, created_at) VALUES (?, ?, ?)').run(cleanUser, numAmount, createdAt);
 
-    res.json({ success: true, message: `Repayment of ₹${numAmount} recorded successfully!` });
+    res.json({ success: true, message: `Repayment of ₹${numAmount.toLocaleString('en-IN')} recorded successfully!` });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }
 });
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+
+// 10. Retailer Me / Profile Fetch API
+app.get('/api/retailers/me', (req, res) => {
+  try {
+    let rawUser = req.query.username || '';
+    let username = rawUser.trim().replace(/^@/, '').toLowerCase();
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = ? OR LOWER(username) = ? LIMIT 1').get(username, '@' + username);
+    if (retailer) {
+      res.json({
+        success: true,
+        business_name: retailer.business_name,
+        credit_limit: retailer.credit_limit || 0,
+        phone: retailer.phone,
+        address: retailer.address,
+        state: retailer.state,
+        gstin: retailer.gstin
+      });
+    } else {
+      res.json({ success: false });
+    }
+  } catch(e) {
+    res.json({ success: false });
+  }
 });
