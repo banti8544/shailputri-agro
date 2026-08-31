@@ -438,8 +438,11 @@ if (order.status === 'Cancelled') return res.json({ success: false, message: "Al
       } catch(e) {}
     }
 
-    return res.json({ success: true, message: "Order cancelled successfully" });
-});
+// API to update product with new image
+app.put('/api/products/:id', upload.single('image'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category, price, moq, unit, stock, description } = req.body;
 
     let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
     let params = [name, category, price, moq, unit, stock, description];
