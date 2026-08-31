@@ -160,7 +160,7 @@
         </form>
       </div>
 
-      <!-- 3. Manage Products with Search -->
+      <!-- 3. Manage Products with Search & Image Upload -->
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <h2>3. Manage Products</h2>
@@ -168,21 +168,21 @@
         </div>
         <table>
           <thead>
-          <tr>
-            <th>ID</th>
-            <th>Product Name</th>
-            <th>SKU</th>
-            <th>HSN Code</th>
-            <th>GST (%)</th>
-            <th>Price (₹)</th>
-            <th>Stock</th>
-            <th>Product Image</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="admin-products-table">
-          <tr><td colspan="9">Loading products...</td></tr>
-        </tbody>
+            <tr>
+              <th>ID</th>
+              <th>Product Name</th>
+              <th>SKU</th>
+              <th>HSN Code</th>
+              <th>GST (%)</th>
+              <th>Price (₹)</th>
+              <th>Stock</th>
+              <th>Product Image</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="admin-products-table">
+            <tr><td colspan="9">Loading products...</td></tr>
+          </tbody>
         </table>
       </div>
 
@@ -249,7 +249,6 @@
         document.getElementById("admin-main-content").style.display = "none";
       }
 
-      // Attach button listener directly
       const submitBtn = document.getElementById("admin-submit-btn");
       if (submitBtn) {
         submitBtn.addEventListener("click", executeAdminLogin);
@@ -264,7 +263,6 @@
       msg.style.color = "#0369a1";
       msg.textContent = "Verifying...";
 
-      // Direct fallback verification
       if (user.toLowerCase() === "admin" && pass === "Admin@123") {
         sessionStorage.setItem("adminAuthToken", "admin-auth-token-shailputri");
         msg.textContent = "";
@@ -309,7 +307,7 @@
       window.location.reload();
     }
 
-    // Company Settings
+    // 1. Company Settings
     async function loadCompanySettings() {
       const res = await fetch('/api/company-settings');
       companyConfig = await res.json();
@@ -356,7 +354,7 @@
       loadCompanySettings();
     }
 
-    // Products Management
+    // 2. Products Management with Live Image Upload
     async function loadAdminProducts() {
       const res = await fetch('/api/products');
       const data = await res.json();
@@ -376,43 +374,88 @@
 
     function renderAdminProducts(list) {
       const tbody = document.getElementById('admin-products-table');
-      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching products found.</td></tr>'; return; }
-      tbody.innerHTML = list.map(p => `
-        <tr>
-          <td>${p.id}</td>
-          <td><strong>${p.name}</strong></td>
-          <td>${p.sku}</td>
-          <td><input type="text" id="hsn-${p.id}" value="${p.hsn || '1006'}" style="width: 70px;"></td>
-          <td>
-            <select id="gst-${p.id}">
-              <option value="0" ${p.gst_rate === 0 ? 'selected' : ''}>0%</option>
-              <option value="5" ${p.gst_rate === 5 ? 'selected' : ''}>5%</option>
-              <option value="12" ${p.gst_rate === 12 ? 'selected' : ''}>12%</option>
-              <option value="18" ${p.gst_rate === 18 ? 'selected' : ''}>18%</option>
-            </select>
-          </td>
-          <td><input type="number" id="price-${p.id}" value="${p.originalPrice}" style="width: 75px;"></td>
-          <td><input type="number" id="stock-${p.id}" value="${p.stock}" style="width: 55px;"></td>
-          <td>
-            <button class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductEdit(${p.id})">Save</button>
-            <button class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
-          </td>
-        </tr>
-      `).join('');
+      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No matching products found.</td></tr>'; return; }
+      
+      tbody.innerHTML = list.map(p => {
+        const imgPath = p.imageUrl ? '/' + p.imageUrl : '/images/placeholder.png';
+        return `
+          <tr id="row-${p.id}">
+            <td>${p.id}</td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.sku || '-'}</td>
+            <td><input type="text" id="hsn-${p.id}" value="${p.hsn || '1006'}" style="width: 70px;"></td>
+            <td>
+              <select id="gst-${p.id}">
+                <option value="0" ${p.gst_rate === 0 ? 'selected' : ''}>0%</option>
+                <option value="5" ${p.gst_rate === 5 ? 'selected' : ''}>5%</option>
+                <option value="12" ${p.gst_rate === 12 ? 'selected' : ''}>12%</option>
+                <option value="18" ${p.gst_rate === 18 ? 'selected' : ''}>18%</option>
+              </select>
+            </td>
+            <td><input type="number" id="price-${p.id}" value="${p.price || p.originalPrice || 0}" style="width: 75px;"></td>
+            <td><input type="number" id="stock-${p.id}" value="${p.stock ?? 0}" style="width: 55px;"></td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <img src="${imgPath}" id="preview-${p.id}" style="width: 35px; height: 35px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;">
+                <input type="file" id="file-${p.id}" accept="image/*" style="font-size: 11px; width: 130px;" onchange="previewProductImage(event, ${p.id})">
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${(p.category || 'General').replace(/'/g, "\\'")}')">Save</button>
+              <button class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    async function saveProductEdit(id) {
+    function previewProductImage(event, id) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.getElementById(`preview-${id}`);
+          if (img) img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function saveProductRow(id, name, category) {
       const price = document.getElementById(`price-${id}`).value;
       const stock = document.getElementById(`stock-${id}`).value;
       const hsn = document.getElementById(`hsn-${id}`).value;
       const gst_rate = document.getElementById(`gst-${id}`).value;
-      await fetch('/api/products/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, price, stock, hsn, gst_rate })
-      });
-      alert('Product updated!');
-      loadAdminProducts();
+      const fileInput = document.getElementById(`file-${id}`);
+
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('category', category);
+      formData.append('price', price);
+      formData.append('stock', stock);
+      formData.append('hsn', hsn);
+      formData.append('gst_rate', gst_rate);
+
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+      }
+
+      try {
+        const res = await fetch(`/api/products/${id}`, {
+          method: 'PUT',
+          body: formData
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert('Product & Image updated successfully!');
+          loadAdminProducts();
+        } else {
+          alert('Error: ' + (result.message || result.error || 'Failed to update'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to save changes.');
+      }
     }
 
     async function addNewProduct(e) {
@@ -439,7 +482,7 @@
       loadAdminProducts();
     }
 
-    // Orders Management
+    // 3. Orders Management
     async function fetchOrders() {
       const res = await fetch('/api/orders');
       globalOrders = await res.json();
@@ -458,7 +501,7 @@
       renderAdminOrders(filtered);
     }
 
-   function renderAdminOrders(list) {
+    function renderAdminOrders(list) {
       const tbody = document.getElementById('admin-orders-table');
       if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching orders found.</td></tr>'; return; }
 
@@ -525,7 +568,7 @@
       }
     }
 
-    // Dealer Management
+    // 4. Dealer Management
     async function loadRetailers() {
       const res = await fetch('/api/retailers');
       globalDealers = await res.json();
@@ -535,9 +578,9 @@
     function filterAdminDealers() {
       const q = document.getElementById("search-dealers-input").value.toLowerCase();
       const filtered = globalDealers.filter(d => 
-        d.business_name.toLowerCase().includes(q) ||
-        d.username.toLowerCase().includes(q) ||
-        (d.state && d.state.toLowerCase().includes(q)) ||
+        d.business_name.toLowerCase().includes(q) || 
+        d.username.toLowerCase().includes(q) || 
+        (d.state && d.state.toLowerCase().includes(q)) || 
         (d.gstin && d.gstin.toLowerCase().includes(q))
       );
       renderAdminDealers(filtered);
@@ -585,7 +628,7 @@
       loadRetailers();
     }
 
-    // Master Invoice Generator (Identical to Customer Invoice)
+    // 5. Master Invoice Generator
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -755,17 +798,10 @@
             <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end;">
               <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
               <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
-  <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
-    🖨️ Print / Save PDF
-  </button>
-  <button onclick="window.opener.sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
-    📲 Send on WhatsApp
-  </button>
-</div>
-            </div>
-
-            <div style="text-align: center; margin-top: 25px;" class="no-print">
-              <button onclick="sendWhatsAppInvoice(${o.id})" class="btn" style="background:#25D366; padding: 4px 8px; font-size: 0.75rem; margin-top: 4px;">📲 WhatsApp</button>
+                <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
+                  🖨️ Print / Save PDF
+                </button>
+              </div>
             </div>
           </body>
         </html>
