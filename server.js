@@ -527,39 +527,54 @@ app.post('/api/orders/:id/status', (req, res) => {
   }
 });
 
-// 8. Dealer Credit Statement & Ledger API (Fixes "Failed to load statement")
+// 8. Dealer Credit Statement & Safe Ledger API
 app.get('/api/credit-statement/:username', (req, res) => {
   try {
     const username = (req.params.username || '').trim();
+    if (!username) {
+      return res.json({ success: false, message: 'Username required' });
+    }
+
     const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
     
     if (!retailer) {
-      return res.json({ success: false, message: 'Dealer not found' });
+      return res.json({ success: false, message: 'Dealer profile not found' });
     }
 
-    const assignedLimit = retailer.credit_limit || 0;
-    const creditOrders = db.prepare(`
-      SELECT id, total, created_at, 'Credit Used' as type 
-      FROM orders 
-      WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit' AND status NOT IN ('Cancelled', 'Returned')
-      ORDER BY id DESC
-    `).all(username) || [];
+    const assignedLimit = Number(retailer.credit_limit) || 0;
 
-    const repayments = db.prepare(`
-      SELECT id, amount as total, created_at, 'Repayment' as type 
-      FROM credit_repayments 
-      WHERE LOWER(username) = LOWER(?) 
-      ORDER BY id DESC
-    `).all(username) || [];
+    let creditOrders = [];
+    try {
+      creditOrders = db.prepare(`
+        SELECT id, total, created_at, 'Credit Order' as type 
+        FROM orders 
+        WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit' AND status != 'Cancelled'
+        ORDER BY id DESC
+      `).all(username) || [];
+    } catch(e) {
+      creditOrders = [];
+    }
 
-    const transactions = [...creditOrders, ...repayments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let repayments = [];
+    try {
+      repayments = db.prepare(`
+        SELECT id, amount as total, created_at, 'Repayment' as type 
+        FROM credit_repayments 
+        WHERE LOWER(username) = LOWER(?) 
+        ORDER BY id DESC
+      `).all(username) || [];
+    } catch(e) {
+      repayments = [];
+    }
 
-    const totalCreditUsed = creditOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalRepaid = repayments.reduce((sum, r) => sum + (r.total || 0), 0);
+    const transactions = [...creditOrders, ...repayments].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    const totalCreditUsed = creditOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const totalRepaid = repayments.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
     const currentUsed = Math.max(0, totalCreditUsed - totalRepaid);
     const availableLimit = Math.max(0, assignedLimit - currentUsed);
 
-    res.json({
+    return res.json({
       success: true,
       totalLimit: assignedLimit,
       usedLimit: currentUsed,
@@ -568,7 +583,7 @@ app.get('/api/credit-statement/:username', (req, res) => {
     });
   } catch (err) {
     console.error('Statement error:', err);
-    res.json({ success: false, message: 'Failed to load statement' });
+    return res.json({ success: false, message: 'Failed to load statement' });
   }
 });
 
