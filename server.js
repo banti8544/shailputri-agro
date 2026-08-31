@@ -432,9 +432,7 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
 
     // Restore Credit Limit
-    if (order.payment_mode === 'Credit' && order.username) {
-      try {
-} catch(e) {}
+  } catch(e) {}
   }
 
   return res.json({ success: true, message: "Order cancelled successfully" });
