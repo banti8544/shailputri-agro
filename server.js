@@ -437,7 +437,7 @@ app.post('/api/orders/:id/cancel', (req, res) => {
         db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
       } catch(e){}
     }
-    // API to update product with new image
+   // API to update product with new image
 app.put('/api/products/:id', upload.single('image'), (req, res) => {
   try {
     const { id } = req.params;
@@ -445,6 +445,22 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
     
     let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
     let params = [name, category, price, moq, unit, stock, description];
+
+    if (req.file) {
+      query += `, image = ?`;
+      params.push(`images/${req.file.filename}`);
+    }
+
+    query += ` WHERE id = ?`;
+    params.push(id);
+
+    db.prepare(query).run(...params);
+    res.json({ success: true, message: 'Product & Image updated successfully' });
+  } catch (err) {
+    console.error('Update Product Error:', err);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
 
     // Agar nayi image upload ki gayi hai
     if (req.file) {
