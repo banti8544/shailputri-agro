@@ -39,6 +39,7 @@ addCol('retailers', 'credit_limit', 'INTEGER DEFAULT 50000');
 
 addCol('products', 'hsn', "TEXT DEFAULT '1006'");
 addCol('products', 'gst_rate', 'INTEGER DEFAULT 5');
+addCol('products', 'image_url', "TEXT DEFAULT 'images/placeholder.png'");
 
 addCol('orders', 'username', 'TEXT');
 addCol('orders', 'payment_mode', "TEXT DEFAULT 'Online'");
@@ -434,7 +435,7 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     
     if (!order) return res.json({ success: false, message: "Order not found" });
-if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
+    if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
 
     // Restore Credit Limit
     if (order.payment_mode === 'Credit' && order.username) {
@@ -443,17 +444,34 @@ if (order.status === 'Cancelled') return res.json({ success: false, message: "Al
       } catch(e) {}
     }
 
+    // Safely Restore Inventory Stock
+    try {
+      const items = JSON.parse(order.items || '[]');
+      items.forEach(item => {
+        if (item.id) {
+          db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
+        }
+      });
+    } catch(e) {}
+
+    db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ?").run(orderId);
+    res.json({ success: true, message: "Order cancelled successfully" });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
+
 // API to update product with new image
 app.put('/api/products/:id', upload.single('image'), (req, res) => {
   try {
     const { id } = req.params;
     const { name, category, price, moq, unit, stock, description } = req.body;
 
-    let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
-    let params = [name, category, price, moq, unit, stock, description];
+    let query = `UPDATE products SET name = ?, category = ?, price = ?, stock = ?`;
+    let params = [name, category, parseInt(price) || 0, parseInt(stock) || 0];
 
     if (req.file) {
-      query += `, image = ?`;
+      query += `, image_url = ?`;
       params.push(`images/${req.file.filename}`);
     }
 
@@ -466,4 +484,9 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
     console.error('Update Product Error:', err);
     res.status(500).json({ error: 'Failed to update product' });
   }
+});
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
