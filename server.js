@@ -436,7 +436,7 @@ app.post('/api/orders/:id/cancel', (req, res) => {
       try {
 } catch(e) {}
   }
-  
+
   return res.json({ success: true, message: "Order cancelled successfully" });
 });
 
@@ -445,7 +445,7 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
   try {
     const { id } = req.params;
     const { name, category, price, moq, unit, stock, description } = req.body;
-    
+
     let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
     let params = [name, category, price, moq, unit, stock, description];
 
@@ -463,184 +463,4 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
     console.error('Update Product Error:', err);
     res.status(500).json({ error: 'Failed to update product' });
   }
-});    query += ` WHERE id = ?`;
-    params.push(id);
-
-    db.prepare(query).run(...params);
-    res.json({ success: true, message: 'Product & Image updated successfully' });
-  } catch (err) {
-    console.error('Update Product Error:', err);
-    res.status(500).json({ error: 'Failed to update product' });
-  }
 });
-
-    // Safely Restore Inventory Stock
-    try {
-      let items = [];
-      if (typeof order.items === 'string') items = JSON.parse(order.items);
-      else if (Array.isArray(order.items)) items = order.items;
-
-      if (Array.isArray(items)) {
-        items.forEach(item => {
-          if (item && item.id) db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
-          else if (item && item.name) db.prepare('UPDATE products SET stock = stock + 1 WHERE name = ?').run(item.name);
-        });
-      }
-    } catch (e) {}
-
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('Cancelled', orderId);
-    return res.json({ success: true, message: `Order #ORD-${orderId} cancelled & stock restored!` });
-  } catch (err) {
-    return res.json({ success: false, message: "Server error: " + err.message });
-  }
-});
-
-// Safe Customer Return Request
-app.post('/api/orders/:id/return', (req, res) => {
-  try {
-    const orderId = Number(req.params.id);
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!order) return res.json({ success: false, message: "Order not found" });
-    
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('Return Requested', orderId);
-    return res.json({ success: true, message: `Return request submitted for Order #ORD-${orderId}!` });
-  } catch (err) {
-    return res.json({ success: false, message: err.message });
-  }
-});
-
-// Safe Admin Order Status Update
-app.post('/api/orders/:id/status', (req, res) => {
-  try {
-    const orderId = Number(req.params.id);
-    const { status } = req.body || {};
-    
-    if (!status) return res.json({ success: false, message: "Status is required" });
-
-    const current = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!current) return res.json({ success: false, message: "Order not found" });
-
-    if ((status === 'Returned' || status === 'Cancelled') && current.status !== 'Returned' && current.status !== 'Cancelled') {
-      if (current.payment_mode === 'Credit' && current.username) {
-        try {
-          db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(current.total, current.username);
-        } catch(e){}
-      }
-      try {
-        let items = [];
-        if (typeof current.items === 'string') items = JSON.parse(current.items);
-        else if (Array.isArray(current.items)) items = current.items;
-
-        if (Array.isArray(items)) {
-          items.forEach(item => {
-            if (item && item.id) db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
-            else if (item && item.name) db.prepare('UPDATE products SET stock = stock + 1 WHERE name = ?').run(item.name);
-          });
-        }
-      } catch (e) {}
-    }
-
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
-    return res.json({ success: true, message: `Order #ORD-${orderId} marked as "${status}"!` });
-  } catch (err) {
-    return res.json({ success: false, message: "Server error: " + err.message });
-  }
-});
-
-// 7. Credit Statement & Repayment
-app.get('/api/retailers/credit-statement', (req, res) => {
-  try {
-    const username = req.query.username || '';
-    if (!username) return res.json({ orders: [], repayments: [] });
-    const orders = db.prepare("SELECT * FROM orders WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit'").all(username) || [];
-    const repayments = db.prepare("SELECT * FROM credit_repayments WHERE LOWER(username) = LOWER(?)").all(username) || [];
-    res.json({ orders, repayments });
-  } catch (err) {
-    res.json({ orders: [], repayments: [] });
-  }
-});
-
-app.post('/api/retailers/repay-credit', (req, res) => {
-  try {
-    const { username, amount } = req.body;
-    const payAmount = parseInt(amount);
-    if (!username || !payAmount || payAmount <= 0) return res.json({ success: false, message: "Invalid amount" });
-
-    const orders = db.prepare("SELECT * FROM orders WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit'").all(username);
-    const repayments = db.prepare("SELECT * FROM credit_repayments WHERE LOWER(username) = LOWER(?)").all(username);
-
-    let totalDebit = 0;
-    orders.forEach(o => { if (o.status !== 'Cancelled' && o.status !== 'Returned') totalDebit += (o.total || 0); });
-    let totalRepaid = 0;
-    repayments.forEach(r => totalRepaid += (r.amount || 0));
-    let currentDue = Math.max(0, totalDebit - totalRepaid);
-
-    if (payAmount > currentDue) {
-      return res.json({ success: false, message: `Cannot exceed due balance (₹${currentDue})` });
-    }
-
-    db.prepare('INSERT INTO credit_repayments (username, amount, created_at) VALUES (?, ?, ?)')
-      .run(username, payAmount, new Date().toISOString());
-
-    db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)')
-      .run(payAmount, username);
-
-    res.json({ success: true, message: `Payment of ₹${payAmount} recorded successfully!` });
-  } catch (err) {
-    res.json({ success: false, message: err.message });
-  }
-});
-
-// 8. Retailer Profile APIs
-app.get('/api/retailers/me', (req, res) => {
-  const username = req.query.username || 'banti1122';
-  const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
-  if (retailer) {
-    res.json({
-      success: true,
-      business_name: retailer.business_name || 'Dealer Partner',
-      username: retailer.username,
-      phone: retailer.phone || '8544241851',
-      address: retailer.address || 'Gulabbagh, Purnia',
-      state: retailer.state || 'Bihar',
-      gstin: retailer.gstin || '',
-      scheme_name: retailer.scheme_name || 'Regular',
-      discount_percent: retailer.discount_percent || 0,
-      credit_limit: retailer.credit_limit || 0
-    });
-  } else {
-    res.json({ success: false });
-  }
-});
-
-app.get('/api/retailers', (req, res) => {
-  res.json(db.prepare('SELECT * FROM retailers').all() || []);
-});
-
-app.post('/api/retailers/update-scheme', (req, res) => {
-  const { id, schemeName, discountPercent, creditLimit, state, gstin } = req.body;
-  db.prepare('UPDATE retailers SET scheme_name = ?, discount_percent = ?, credit_limit = ?, state = ?, gstin = ? WHERE id = ?')
-    .run(schemeName, parseInt(discountPercent) || 0, parseInt(creditLimit) || 0, state || 'Bihar', gstin || '', parseInt(id));
-  res.json({ success: true, message: 'Updated!' });
-});
-
-app.post('/api/profile/update', (req, res) => {
-  const { username, businessName, phone, address, state, gstin } = req.body;
-  db.prepare('UPDATE retailers SET business_name = ?, phone = ?, address = ?, state = ?, gstin = ? WHERE LOWER(username) = LOWER(?)')
-    .run(businessName, phone, address, state || 'Bihar', gstin || '', username);
-  res.json({ success: true, message: "Profile updated!" });
-});
-
-// Direct Admin Login
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body || {};
-  const ADMIN_USER = "admin";
-  const ADMIN_PASS = "Admin@123";
-
-  if ((username || '').trim().toLowerCase() === ADMIN_USER && (password || '').trim() === ADMIN_PASS) {
-    return res.json({ success: true, token: "admin-auth-token-shailputri" });
-  }
-  return res.json({ success: false, message: "Invalid Admin Username or Password!" });
-});
-
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
