@@ -1,20 +1,23 @@
 {
   "name": "Shailputri Agro Foods",
   "short_name": "ShailputriAgro",
+  "description": "B2B Agro Trading and Commodities Supply Portal",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#102a43",
   "theme_color": "#70b028",
   "icons": [
     {
-      "src": "images/placeholder.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "https://cdn-icons-png.flaticon.com/512/3014/3014528.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "images/placeholder.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "https://cdn-icons-png.flaticon.com/192/3014/3014528.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
