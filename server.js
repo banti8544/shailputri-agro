@@ -109,6 +109,11 @@ const imageStorage = multer.diskStorage({
 });
 
 const upload = multer({ storage: imageStorage });
+const uploadImage = upload; // For company settings & products
+
+// 2. GST Lookup API
+app.get('/api/gst-lookup/:gstin', (req, res) => {
+  const gstin = (req.params.gstin || '').toUpperCase().trim();
 
   const GST_STATE_CODES = {
     "01": "Jammu & Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
