@@ -1,0 +1,25 @@
+{
+  "name": "Shailputri Agro Foods - Trade Portal",
+  "short_name": "Shailputri Agro",
+  "description": "B2B Wholesale Trade & Order Portal for Dealers",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#102a43",
+  "theme_color": "#102a43",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "images/placeholder.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/placeholder.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

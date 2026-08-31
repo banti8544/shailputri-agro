@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Dealer Registration - Shailputri Agro</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f1f5f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1.5rem 0;
+    }
+    .auth-card {
+      background: white;
+      padding: 2.2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 480px;
+    }
+    h2 {
+      text-align: center;
+      color: #102a43;
+      margin: 0 0 0.4rem 0;
+    }
+    .sub-title {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #334155;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.55rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button {
+      width: 100%;
+      background: #102a43;
+      color: white;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+    button:hover {
+      background: #0088cc;
+    }
+    .links-row {
+      text-align: center;
+      margin-top: 1.2rem;
+      font-size: 0.85rem;
+    }
+    .links-row a {
+      color: #0088cc;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .links-row a:hover {
+      text-decoration: underline;
+    }
+    .msg-box {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-card">
+    <h2>Shailputri Agro Foods</h2>
+    <div class="sub-title">B2B Dealer & Retailer Registration</div>
+
+    <form id="signup-form" onsubmit="handleSignup(event)">
+      
+      <div class="form-group">
+        <label>Business / Firm Name *</label>
+        <input type="text" id="businessName" required placeholder="e.g. Mahabir Trading Co.">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Username (Login ID) *</label>
+          <input type="text" id="username" required placeholder="e.g. mahabir123">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="password" required placeholder="••••••••">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Mobile Number *</label>
+          <input type="tel" id="phone" required placeholder="e.g. 9876543210">
+        </div>
+        <div class="form-group">
+          <label>State *</label>
+          <input type="text" id="state" required value="Bihar">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>GSTIN Number (Optional)</label>
+          <input type="text" id="gstin" maxlength="15" placeholder="10AAACS1234F1Z5" style="text-transform: uppercase;">
+        </div>
+        <div class="form-group">
+          <label>PIN Code (Auto-Address)</label>
+          <input type="text" id="pincode" maxlength="6" oninput="fetchPincode(this.value)" placeholder="e.g. 854326">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Registered Business Address *</label>
+        <textarea id="address" rows="2" required placeholder="Shop/Godown address"></textarea>
+      </div>
+
+      <button type="submit">Create Dealer Account</button>
+    </form>
+
+    <div class="links-row">
+      Already registered? <a href="login.html">Login to Portal</a>
+    </div>
+
+    <div id="signup-status" class="msg-box"></div>
+  </div>
+
+  <script>
+    async function fetchPincode(pin) {
+      if (pin.length === 6 && /^\d+$/.test(pin)) {
+        try {
+          const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+          const data = await res.json();
+          if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice.length > 0) {
+            const po = data[0].PostOffice[0];
+            document.getElementById('address').value = `${po.Name}, ${po.District}, ${po.State} - ${pin}`;
+            document.getElementById('state').value = po.State;
+          }
+        } catch (e) {}
+      }
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const statusDiv = document.getElementById("signup-status");
+      statusDiv.style.color = "#0369a1";
+      statusDiv.textContent = "Creating dealer account...";
+
+      const payload = {
+        businessName: document.getElementById("businessName").value.trim(),
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        state: document.getElementById("state").value.trim(),
+        gstin: document.getElementById("gstin").value.trim().toUpperCase()
+      };
+
+      try {
+        const res = await fetch('/api/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          statusDiv.style.color = "#137333";
+          statusDiv.textContent = "✅ Registration Successful! Redirecting to login...";
+          setTimeout(() => {
+            window.location.href = "login.html";
+          }, 1500);
+        } else {
+          statusDiv.style.color = "#c5221f";
+          statusDiv.textContent = data.message || "Registration failed.";
+        }
+      } catch (err) {
+        statusDiv.style.color = "#c5221f";
+        statusDiv.textContent = "Server error. Ensure node server.js is running.";
+      }
+    }
+  </script>
+</body>
+</html>

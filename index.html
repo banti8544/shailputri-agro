@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shailputri Agro Foods - Wholesale B2B Grocery</title>
+  <style>
+    :root {
+      --primary: #70b028;
+      --primary-dark: #5c9320;
+      --navy: #102a43;
+      --bg: #f8fafc;
+      --card-border: #e2e8f0;
+      --text: #334155;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: var(--bg); color: var(--text); }
+    
+    /* Top Bar */
+    .top-bar { background: #f1f5f9; padding: 6px 2rem; font-size: 0.8rem; display: flex; justify-content: space-between; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+    .top-bar a { color: #64748b; text-decoration: none; margin-left: 15px; }
+
+    /* Header */
+    header { background: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 100; }
+    .logo-box h1 { margin: 0; color: var(--navy); font-size: 1.6rem; display: flex; align-items: center; gap: 8px; }
+    .logo-box h1 span { color: var(--primary); }
+    .search-bar-wrap { display: flex; width: 45%; max-width: 550px; }
+    .search-bar-wrap input { width: 100%; padding: 0.7rem 1rem; border: 2px solid var(--primary); border-radius: 4px 0 0 4px; outline: none; font-size: 0.95rem; }
+    .search-bar-wrap button { background: var(--primary); color: white; border: none; padding: 0 1.5rem; border-radius: 0 4px 4px 0; cursor: pointer; font-weight: bold; }
+    .header-actions { display: flex; align-items: center; gap: 1rem; }
+    
+    .btn-cart { background: var(--primary); color: white; padding: 0.6rem 1.2rem; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .btn-cart:hover { background: var(--primary-dark); }
+    .user-pill { background: #f8fafc; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
+
+    /* Navigation Bar */
+    nav { background: var(--navy); color: white; padding: 0 2rem; display: flex; align-items: center; gap: 1.5rem; }
+    .category-btn-nav { background: var(--primary); color: white; padding: 0.8rem 1.5rem; font-weight: bold; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    nav a { color: white; text-decoration: none; font-size: 0.9rem; font-weight: 500; padding: 0.8rem 0.5rem; }
+    nav a:hover { color: #a3e635; }
+
+    /* Layout */
+    .main-wrapper { display: flex; max-width: 1400px; margin: 1.5rem auto; padding: 0 1rem; gap: 1.5rem; }
+    .sidebar { width: 260px; flex-shrink: 0; }
+    .category-card { background: white; border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
+    .category-card h3 { margin: 0; background: var(--primary); color: white; padding: 0.8rem 1rem; font-size: 1rem; }
+    .category-card ul { list-style: none; margin: 0; padding: 0; }
+    .category-card li { padding: 0.7rem 1rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.9rem; transition: 0.2s; display: flex; justify-content: space-between; }
+    .category-card li:hover, .category-card li.active { background: #f0fdf4; color: var(--primary-dark); font-weight: bold; }
+    
+    .content-area { flex-grow: 1; }
+
+    /* Catalog Product Grid */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.2rem; }
+    .product-card { background: white; border: 1px solid var(--card-border); border-radius: 6px; position: relative; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+    .product-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08); }
+    .badge-discount { position: absolute; top: 8px; right: 8px; background: #000; color: white; font-size: 0.75rem; font-weight: bold; padding: 2px 6px; border-radius: 3px; z-index: 2; }
+    
+    .img-wrap { position: relative; height: 180px; display: flex; align-items: center; justify-content: center; background: #fff; padding: 10px; }
+    .img-wrap img { max-height: 100%; max-width: 100%; object-fit: contain; }
+    .btn-quickview { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    .img-wrap:hover .btn-quickview { opacity: 1; }
+
+    .card-info { padding: 0.8rem; text-align: center; }
+    .card-info h4 { margin: 0 0 0.4rem 0; font-size: 0.95rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .price-row { margin-bottom: 0.8rem; }
+    .orig-price { text-decoration: line-through; color: #94a3b8; font-size: 0.85rem; margin-right: 6px; }
+    .final-price { color: var(--primary-dark); font-size: 1.1rem; font-weight: bold; }
+    .btn-add-cart { width: 100%; background: transparent; border: 1.5px solid var(--primary); color: var(--primary-dark); padding: 0.5rem; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-add-cart:hover { background: var(--primary); color: white; }
+
+    /* Quick View Popup Modal */
+    .qv-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+    .qv-box { background: white; width: 90%; max-width: 780px; border-radius: 8px; padding: 2rem; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); display: flex; gap: 2rem; }
+    .qv-close { position: absolute; top: 12px; right: 12px; background: #334155; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+    .qv-left { width: 45%; display: flex; justify-content: center; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem; position: relative; }
+    .qv-left img { max-height: 280px; max-width: 100%; object-fit: contain; }
+    .qv-right { width: 55%; display: flex; flex-direction: column; justify-content: space-between; }
+    
+    .tier-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
+    .tier-table th, .tier-table td { padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; }
+    .tier-table th { background: #f8fafc; }
+    .tier-active-row { background: #fdf2f8; color: #9d174d; font-weight: bold; }
+
+    .qty-control-box { display: flex; align-items: center; gap: 8px; margin: 1.2rem 0; }
+    .qty-btn { width: 34px; height: 34px; border: 1px solid #cbd5e1; background: #f1f5f9; font-size: 1.2rem; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    .qty-input { width: 55px; height: 34px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; font-size: 1rem; }
+    .btn-modal-add { flex-grow: 1; background: var(--primary); color: white; border: none; height: 36px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+
+    /* Generic Sections */
+    section { background: white; border: 1px solid var(--card-border); border-radius: 6px; padding: 2rem; margin-top: 1rem; }
+    .stamp { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .stamp-green { background: #e6f4ea; color: #137333; }
+    .stamp-blue { background: #e0f2fe; color: #0369a1; }
+    .stamp-red { background: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Info Bar -->
+  <div class="top-bar">
+    <div>Welcome to <strong>Shailputri Agro Foods</strong> B2B Wholesale Market</div>
+    <div>
+      📞 WhatsApp Order: <strong>+91 8544241851</strong> | ✉️ info@shailputriagro.com
+      <a href="javascript:void(0)" onclick="showSection('profile')">My Account</a>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-box">
+      <h1 onclick="showSection('catalog')" style="cursor:pointer;"><span>🌱 Shailputri</span> Grocery</h1>
+    </div>
+
+    <div class="search-bar-wrap">
+      <input type="text" id="search-input" onkeyup="filterProducts()" placeholder="Search from 500+ Wholesale Groceries, SKU, Spices...">
+      <button onclick="filterProducts()">🔍</button>
+    </div>
+
+    <div class="header-actions">
+      <div id="auth-header-slot">
+        <!-- Injected dynamically: Login/Register OR User Info Badge -->
+      </div>
+      
+      <button class="btn-cart" onclick="showSection('cart')">
+        🛒 <span id="cart-nav-badge">Cart (0)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="category-btn-nav">☰ Wholesale Categories</div>
+    <a href="javascript:void(0)" onclick="showSection('catalog')">Shop Catalog</a>
+    <a href="javascript:void(0)" onclick="showSection('ledger')">My Ledger & Orders</a>
+    <a href="javascript:void(0)" onclick="showSection('profile')">Business Profile & GST</a>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="main-wrapper">
+    
+    <!-- Left Category Sidebar -->
+    <div class="sidebar">
+      <div class="category-card">
+        <h3>Categories</h3>
+        <ul id="sidebar-categories">
+          <li class="active" onclick="filterByCategory('ALL')">All Wholesale Items</li>
+          <li>Loading categories...</li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 1.5rem; background: #fff; padding: 1.2rem; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+        <h4 style="margin: 0 0 0.5rem 0; color: var(--navy);">Bulk Orders & Transports</h4>
+        <p style="font-size: 0.85rem; color: #64748b; margin: 0 0 1rem 0;">Get Doorstep Delivery across Bihar & Bengal.</p>
+        <a href="https://wa.me/918544241851" target="_blank" style="background:#25D366; color:white; padding:8px 12px; border-radius:4px; text-decoration:none; font-weight:bold; font-size:0.85rem; display:block;">📲 WhatsApp Support</a>
+      </div>
+    </div>
+
+    <!-- Right Dynamic Content -->
+    <div class="content-area">
+      
+      <!-- 1. Catalog Section (Visible to Everyone by Default) -->
+      <div id="catalog-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2 style="margin:0; color: var(--navy);" id="catalog-heading">All Wholesale Products</h2>
+          <span id="scheme-info" style="font-weight: bold; color: var(--primary-dark); font-size: 0.9rem;"></span>
+        </div>
+        <div class="product-grid" id="catalog-grid-container">
+          <p>Loading wholesale items...</p>
+        </div>
+      </div>
+
+      <!-- 2. Cart & Checkout Section -->
+      <section id="cart-section" style="display: none;">
+        <h2 style="margin-top: 0; color: var(--navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Your Wholesale Cart</h2>
+        <div id="cart-items">
+          <p>Your cart is empty.</p>
+        </div>
+        <div id="cart-total-display" style="text-align: right; font-size: 1.3rem; font-weight: bold; margin: 1.5rem 0; color: var(--navy);">Total: ₹0</div>
+
+        <!-- Auth Guard Reminder for Guests -->
+        <div id="guest-checkout-prompt" style="display: none; background: #fffbeb; border: 1px solid #fef08a; padding: 1rem; border-radius: 6px; margin: 1rem 0;">
+          <h4 style="margin: 0 0 0.4rem 0; color: #854d0e;">⚠️ Dealer Login Required to Confirm Order</h4>
+          <p style="margin: 0 0 0.8rem 0; font-size: 0.9rem; color: #713f12;">Items are saved in your cart! Please Login or Register your business to place the order.</p>
+          <div style="display: flex; gap: 10px;">
+            <a href="login.html" style="background: var(--navy); color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">Login Now</a>
+            <a href="signup.html" style="background: var(--primary); color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">New Dealer Register</a>
+          </div>
+        </div>
+
+        <!-- Shipping Destination (For Logged in Dealers) -->
+        <div id="shipping-address-box" style="margin: 1.5rem 0; padding: 1.2rem; border: 2px solid #0088cc; border-radius: 8px; background: #f0f9ff;">
+          <h3 style="margin: 0 0 0.6rem 0; color: var(--navy); font-size: 1.1rem;">🚚 Delivery / Shipping Destination (Ship To)</h3>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.8rem;">
+            <div>
+              <label style="display: block; font-weight: bold; margin-bottom: 0.2rem; font-size: 0.85rem;">Delivery Contact Person Mobile No. *</label>
+              <input type="tel" id="cart-shipping-phone" style="width: 100%; padding: 0.5rem; border: 1px solid #94a3b8; border-radius: 4px;" placeholder="e.g. 9876543210">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; margin-bottom: 0.2rem; font-size: 0.85rem;">Delivery Destination State *</label>
+              <select id="cart-shipping-state" style="width: 100%; padding: 0.5rem; border: 1px solid #94a3b8; border-radius: 4px;">
+                <option value="Bihar" selected>Bihar (Intra-State: CGST + SGST)</option>
+                <option value="West Bengal">West Bengal (Inter-State: IGST)</option>
+                <option value="Jharkhand">Jharkhand (Inter-State: IGST)</option>
+                <option value="Uttar Pradesh">Uttar Pradesh (Inter-State: IGST)</option>
+                <option value="Other">Other State (Inter-State: IGST)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 0.2rem; font-size: 0.85rem;">Delivery Point Address *</label>
+            <textarea id="cart-shipping-address" rows="2" style="width: 100%; padding: 0.5rem; border: 1px solid #94a3b8; border-radius: 4px;" placeholder="Godown / Store address"></textarea>
+          </div>
+        </div>
+
+        <!-- Payment Mode Selection -->
+        <div id="payment-mode-box" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;">
+          <h4 style="margin: 0 0 0.8rem 0; color: var(--navy);">Select Payment Method:</h4>
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Online" checked onchange="togglePaymentUI()"> <strong>Online / UPI QR</strong></label>
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="COD" onchange="togglePaymentUI()"> <strong>Cash on Delivery (COD)</strong></label>
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Credit" onchange="togglePaymentUI()"> <strong>Pay via Credit Limit (उधारी)</strong></label>
+          </div>
+        </div>
+
+        <!-- Dynamic UPI QR -->
+        <div id="upi-qr-box" style="margin: 1rem 0; padding: 1rem; border: 1px dashed #0088cc; border-radius: 6px; text-align: center; background: #f0f9ff;">
+          <h4 style="margin: 0 0 0.5rem 0;">Scan UPI QR to Pay</h4>
+          <img id="upi-qr-image" src="" alt="UPI QR" style="width: 150px; height: 150px;">
+        </div>
+
+        <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer;">Place Wholesale Order</button>
+        <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
+      </section>
+
+      <!-- 3. Ledger Section -->
+      <section id="ledger-section" style="display: none;">
+        <h2 style="margin-top: 0; color: var(--navy);">My Ledger & Invoices</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 6px;">
+            <small>Total Orders</small>
+            <h3 id="ledger-total-orders" style="margin: 4px 0 0 0;">0</h3>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 6px;">
+            <small>Total Business</small>
+            <h3 id="ledger-total-amount" style="margin: 4px 0 0 0;">₹0</h3>
+          </div>
+        </div>
+        <div id="recent-orders-list">Loading...</div>
+      </section>
+
+      <!-- 4. Profile Section -->
+      <section id="profile-section" style="display: none; max-width: 650px; margin: 0 auto;">
+        <h2 style="margin-top: 0; color: var(--navy);">🏢 Business Profile & GST Master</h2>
+        <form onsubmit="saveCustomerProfile(event)">
+          <div style="margin-bottom: 1rem;">
+            <label style="font-weight: bold; font-size: 0.85rem;">Username</label>
+            <input type="text" id="edit-username" readonly style="width:100%; padding:0.6rem; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px;">
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <label style="font-weight: bold; font-size: 0.85rem;">Business / Firm Name *</label>
+            <input type="text" id="edit-business" required style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <label style="font-weight: bold; font-size: 0.85rem;">GSTIN Number (15 Digits)</label>
+              <div style="display: flex; gap: 4px;">
+                <input type="text" id="edit-gstin" maxlength="15" placeholder="10AAACS1234F1Z5" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px; text-transform: uppercase;">
+                <button type="button" onclick="autoFetchGSTDetails(document.getElementById('edit-gstin').value)" style="background: var(--navy); color: white; border: none; border-radius: 4px; padding: 0 10px; cursor: pointer; font-weight: bold;">Fetch</button>
+              </div>
+              <small id="gst-state-hint" style="font-weight: bold; display: block; margin-top: 2px;"></small>
+            </div>
+            <div>
+              <label style="font-weight: bold; font-size: 0.85rem;">State *</label>
+              <input type="text" id="edit-state" required style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <label style="font-weight: bold; font-size: 0.85rem;">Mobile Phone *</label>
+              <input type="tel" id="edit-phone" required style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+            <div>
+              <label style="font-weight: bold; font-size: 0.85rem;">PIN Code</label>
+              <input type="text" id="edit-pincode" maxlength="6" oninput="autoFetchPincodeAddress(this.value, 'edit-address', 'edit-state')" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px;">
+              <small id="pincode-fetch-hint" style="font-weight: bold; display: block; margin-top: 2px;"></small>
+            </div>
+          </div>
+          <div style="margin-bottom: 1.5rem;">
+            <label style="font-weight: bold; font-size: 0.85rem;">Registered Business Address *</label>
+            <textarea id="edit-address" rows="2" required style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:4px; font-family: inherit;"></textarea>
+          </div>
+          <button type="submit" style="width: 100%; background: var(--navy); color: white; border: none; padding: 0.7rem; border-radius: 4px; font-weight: bold; cursor: pointer;">💾 Save & Update Profile</button>
+        </form>
+        <div id="profile-msg" style="margin-top: 1rem; font-weight: bold; text-align: center;"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- 5. Quick View Product Modal (Large Image, Tier Discount, + / - Controls) -->
+  <div id="quickview-modal" class="qv-modal">
+    <div class="qv-box">
+      <button class="qv-close" onclick="closeQuickView()">✕</button>
+      
+      <div class="qv-left">
+        <span class="badge-discount" id="qv-badge">-₹0.00</span>
+        <img id="qv-img" src="" alt="Product Large View">
+      </div>
+
+      <div class="qv-right">
+        <div>
+          <h2 id="qv-name" style="margin: 0 0 0.4rem 0; color: var(--navy); font-size: 1.4rem;">Product Name</h2>
+          <div style="font-size: 1.2rem; margin-bottom: 0.8rem;">
+            <span class="orig-price" id="qv-orig-price">₹0.00</span>
+            <span class="final-price" id="qv-final-price">₹0.00</span>
+          </div>
+          <p id="qv-meta" style="font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem 0;">SKU: --- | HSN: ---</p>
+
+          <!-- Wholesale Bulk Tier Pricing Matrix -->
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th>Quantity</th>
+                <th>Discount (%)</th>
+                <th>Price / Case</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="tier-active-row">
+                <td>1 - 9 cases</td>
+                <td>--</td>
+                <td id="qv-tier1-price">₹0.00</td>
+              </tr>
+              <tr>
+                <td>10+ cases (Bulk)</td>
+                <td>Extra 3%</td>
+                <td id="qv-tier2-price" style="color: var(--primary-dark); font-weight: bold;">₹0.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="qty-control-box">
+          <button class="qty-btn" onclick="modalChangeQty(-1)">-</button>
+          <input type="number" id="qv-qty-input" class="qty-input" value="1" min="1" readonly>
+          <button class="qty-btn" onclick="modalChangeQty(1)">+</button>
+          <button class="btn-modal-add" id="qv-add-btn" onclick="confirmModalAddToCart()">Add to cart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credit Statement & Repayment Modal -->
+  <div id="credit-modal" class="qv-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
+    <div class="qv-box" style="background: white; border-radius: 8px; padding: 1.5rem; width: 90%; max-width: 650px; display: block; max-height: 85vh; overflow-y: auto; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--navy); padding-bottom: 0.5rem;">
+        <h3 style="margin: 0; color: var(--navy);">💳 Credit Statement & Repayment</h3>
+        <button type="button" onclick="closeCreditLedgerModal()" style="background:#cbd5e1; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">✕</button>
+      </div>
+
+      <!-- Balance Cards -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 1rem 0; text-align: center;">
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px; border:1px solid #bbf7d0;">
+          <small style="color:#166534; font-weight:bold;">Total Limit</small>
+          <h3 style="margin:4px 0 0 0; color:#166534;">₹<span id="modal-total-limit">0</span></h3>
+        </div>
+        <div style="background:#fef2f2; padding:10px; border-radius:6px; border:1px solid #fecaca;">
+          <small style="color:#991b1b; font-weight:bold;">Used (Udhaari)</small>
+          <h3 style="margin:4px 0 0 0; color:#991b1b;">₹<span id="modal-used-limit">0</span></h3>
+        </div>
+        <div style="background:#eff6ff; padding:10px; border-radius:6px; border:1px solid #bfdbfe;">
+          <small style="color:#1e40af; font-weight:bold;">Available</small>
+          <h3 style="margin:4px 0 0 0; color:#1e40af;">₹<span id="modal-avail-limit">0</span></h3>
+        </div>
+      </div>
+
+      <!-- Repay Toggle Button -->
+      <div style="text-align: right; margin-bottom: 1rem;">
+        <button type="button" onclick="toggleRepaySection()" style="background:#102a43; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">
+          💳 Repay Due Balance (उधारी चुकता करें)
+        </button>
+      </div>
+
+      <!-- Repay QR & Amount Form -->
+      <div id="repay-section" style="display: none; background:#f8fafc; border:1px solid #cbd5e1; padding:1rem; border-radius:6px; margin-bottom:1rem;">
+        <h4 style="margin:0 0 0.5rem 0; color:#102a43;">Scan UPI QR to Clear Due Balance:</h4>
+        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+          <img id="repay-qr-img" src="" alt="Repay QR" style="width:140px; height:140px; border:1px solid #cbd5e1; border-radius:4px; background:white;">
+          <div>
+            <label style="font-weight:bold; font-size:0.85rem;">Repayment Amount (₹):</label><br>
+            <input type="number" id="repay-amount-input" oninput="updateRepayQR()" style="padding:0.5rem; width:150px; margin:4px 0 8px 0; border:1px solid #cbd5e1; border-radius:4px;"><br>
+            <button type="button" onclick="submitCreditRepayment()" style="background:#137333; color:white; border:none; padding:7px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">
+              ✅ Confirm Payment Recorded
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="margin:1rem 0 0.5rem 0; color:#102a43;">Credit Transactions History</h4>
+      <div id="credit-transactions-list" style="max-height: 220px; overflow-y: auto;">Loading...</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

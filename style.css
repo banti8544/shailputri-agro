@@ -1,0 +1,242 @@
+/* --- Global & Base Layout --- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f4efe6;
+  color: #333;
+}
+
+header {
+  background-color: #102a43;
+  color: #fff;
+  padding: 1.5rem 2rem;
+}
+
+header h1 {
+  margin: 0 0 0.4rem 0;
+}
+
+header p {
+  margin: 0.2rem 0;
+}
+
+nav {
+  background-color: #fff;
+  padding: 0.8rem 2rem;
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+nav a {
+  text-decoration: none;
+  color: #102a43;
+  font-weight: bold;
+}
+
+main {
+  max-width: 1200px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+/* --- Catalog Section (Horizontal Grid Layout) --- */
+.category-heading {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin: 2rem 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #cbd5e1;
+  width: 100%;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  width: 100%;
+}
+
+/* Individual Card */
+.product-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+
+.product-img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.card-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: space-between;
+}
+
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.card-title-row h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0.5rem 0;
+}
+
+.price {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #102a43;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.price s {
+  font-size: 0.9rem;
+  color: #888;
+  margin-right: 0.3rem;
+}
+
+.add-btn {
+  background-color: #102a43;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* --- Badges / Stamps --- */
+.stamp {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.stamp-green { background-color: #e6f4ea; color: #137333; }
+.stamp-amber { background-color: #fef7e0; color: #b06000; }
+.stamp-red   { background-color: #fce8e6; color: #c5221f; }
+.stamp-blue  { background-color: #e0f2fe; color: #0369a1; }
+
+/* --- Cart Section --- */
+#cart-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  max-width: 700px;
+  margin: 1.5rem auto;
+}
+
+.cart-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-row button {
+  background-color: #c5221f;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cart-total {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: right;
+  margin-top: 1.2rem;
+  color: #102a43;
+}
+
+#place-order-btn {
+  display: block;
+  width: 100%;
+  background-color: #102a43;
+  color: white;
+  border: none;
+  padding: 0.8rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+/* --- Ledger Section --- */
+#ledger-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  max-width: 800px;
+  margin: 1.5rem auto;
+}
+
+.metrics {
+  display: flex;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.metric {
+  flex: 1;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.metric .label {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.3rem;
+}
+
+.metric .value {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #102a43;
+}
+
+.invoice-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #eee;
+}

@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Shailputri Agro</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background-color: #f8fafc; color: #334155; }
+    header { background-color: #102a43; color: #fff; padding: 1.2rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .container { max-width: 1250px; margin: 2rem auto; padding: 0 1rem; }
+    .card-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    h2 { margin-top: 0; color: #102a43; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+    .btn { background-color: #0088cc; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .btn-green { background-color: #137333; }
+    .btn-green:hover { background-color: #0e5626; }
+    .search-box { padding: 0.5rem 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; width: 280px; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid #e2e8f0; }
+    th { background-color: #f1f5f9; color: #475569; }
+    input[type="text"], input[type="password"], input[type="number"], select { padding: 0.45rem; border-radius: 4px; border: 1px solid #cbd5e1; }
+    .stamp { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .stamp-green { background-color: #e6f4ea; color: #137333; }
+    .stamp-blue { background-color: #e0f2fe; color: #0369a1; }
+    .stamp-red { background-color: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+
+  <!-- Admin Login Overlay -->
+  <div id="admin-login-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #102a43; display: flex; justify-content: center; align-items: center; z-index: 9999;">
+    <div style="background: white; padding: 2.5rem; border-radius: 8px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+      <h2 style="margin-top: 0; color: #102a43; border-bottom: none;">🔒 Admin Login</h2>
+      
+      <div style="margin-bottom: 1rem; text-align: left;">
+        <label style="font-size: 0.85rem; font-weight: bold; color: #334155;">Username</label>
+        <input type="text" id="admin-user-input" placeholder="admin" value="admin" style="width: 100%; padding: 0.6rem; margin-top: 0.3rem; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 1.5rem; text-align: left;">
+        <label style="font-size: 0.85rem; font-weight: bold; color: #334155;">Password</label>
+        <input type="password" id="admin-pass-input" placeholder="••••••••" value="Admin@123" style="width: 100%; padding: 0.6rem; margin-top: 0.3rem; box-sizing: border-box;">
+      </div>
+
+      <button type="button" id="admin-submit-btn" class="btn btn-green" style="width: 100%; padding: 0.75rem; font-size: 1rem;">Login to Dashboard</button>
+      
+      <div id="admin-login-msg" style="margin-top: 1rem; font-weight: bold; font-size: 0.9rem;"></div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="admin-main-content" style="display: none;">
+    <header>
+      <h1>Shailputri Agro — Master Admin Portal</h1>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <a href="index.html" style="color: #cbd5e1; text-decoration: none; font-weight: bold;">Go to Storefront &rarr;</a>
+        <button onclick="adminLogout()" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">Logout</button>
+      </div>
+    </header>
+
+    <div class="container">
+
+      <!-- 1. Company Profile, Logos, Signatory & Bulk Discounts -->
+      <div class="card-box">
+        <h2>1. Shailputri Agro Foods - Tax, Logos & Bulk Tier Rules</h2>
+        <form onsubmit="saveCompanySettings(event)" enctype="multipart/form-data" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: end;">
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Company Name</label>
+            <input type="text" id="cfg-name" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">GSTIN / UIN</label>
+            <input type="text" id="cfg-gstin" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">FSSAI License No.</label>
+            <input type="text" id="cfg-fssai" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">CIN (Corporate ID)</label>
+            <input type="text" id="cfg-cin" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Udyam MSME Reg.</label>
+            <input type="text" id="cfg-udyam" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Registered State</label>
+            <input type="text" id="cfg-state" required style="width: 100%; box-sizing: border-box;" value="Assam">
+          </div>
+          <div style="grid-column: span 2;">
+            <label style="font-weight: bold; font-size: 0.85rem;">Registered Factory / Office Address</label>
+            <input type="text" id="cfg-address" required style="width: 100%; box-sizing: border-box;">
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.6rem; border-radius: 4px;">
+            <label style="font-weight: bold; font-size: 0.85rem; color: #166534;">Bulk Tier Threshold (Qty)</label>
+            <input type="number" id="cfg-bulk-qty" min="2" value="10" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 0.6rem; border-radius: 4px;">
+            <label style="font-weight: bold; font-size: 0.85rem; color: #166534;">Bulk Extra Discount (%)</label>
+            <input type="number" id="cfg-bulk-disc" min="0" max="50" value="1" style="width: 100%; box-sizing: border-box;">
+          </div>
+
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Upload Company Logo</label>
+            <input type="file" id="cfg-logo-file" accept="image/*" style="width: 100%;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Upload Signatory Stamp</label>
+            <input type="file" id="cfg-stamp-file" accept="image/*" style="width: 100%;">
+          </div>
+
+          <div style="grid-column: span 2;">
+            <button type="submit" class="btn btn-green" style="width: 100%; padding: 0.7rem;">💾 Save Tax Profile, Bulk Margins & Logos</button>
+          </div>
+        </form>
+        <div id="company-status" style="margin-top: 0.5rem; font-weight: bold; color: #137333;"></div>
+      </div>
+
+      <!-- 2. Add New Product -->
+      <div class="card-box">
+        <h2>2. Add Item with HSN & GST Rate</h2>
+        <form id="add-product-form" onsubmit="addNewProduct(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end;">
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Product Name *</label>
+            <input type="text" id="prod-name" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">SKU Code *</label>
+            <input type="text" id="prod-sku" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">HSN Code *</label>
+            <input type="text" id="prod-hsn" required value="1006" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">GST Rate (%)</label>
+            <select id="prod-gst-rate" style="width: 100%;">
+              <option value="0">0% (Nil)</option>
+              <option value="5" selected>5% GST</option>
+              <option value="12">12% GST</option>
+              <option value="18">18% GST</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Base Price (₹) *</label>
+            <input type="number" id="prod-price" required style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Stock Qty</label>
+            <input type="number" id="prod-stock" value="50" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Photo</label>
+            <input type="file" id="prod-img-file" accept="image/*" style="width: 100%;">
+          </div>
+          <div>
+            <button type="submit" class="btn btn-green" style="width: 100%; padding: 0.6rem;">+ Save Item</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 3. Manage Products with Search -->
+      <div class="card-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <h2>3. Manage Products</h2>
+          <input type="text" id="search-products-input" onkeyup="filterAdminProducts()" placeholder="🔍 Search Product Name, SKU, HSN..." class="search-box">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Product Name</th>
+              <th>SKU</th>
+              <th>HSN Code</th>
+              <th>GST (%)</th>
+              <th>Price (₹)</th>
+              <th>Stock</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="admin-products-table">
+            <tr><td colspan="8">Loading products...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 4. Incoming Orders with Search -->
+      <div class="card-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <h2>4. Incoming Orders Management</h2>
+          <input type="text" id="search-orders-input" onkeyup="filterAdminOrders()" placeholder="🔍 Search Order ID, Dealer, Mobile, State..." class="search-box">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Dealer Details</th>
+              <th>Tax Type</th>
+              <th>Total Amount</th>
+              <th>Payment</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="admin-orders-table">
+            <tr><td colspan="8">Loading orders...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 5. Dealer Schemes & GST Details with Search -->
+      <div class="card-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <h2>5. Dealer Scheme, Credit Limit & State Tax Setting</h2>
+          <input type="text" id="search-dealers-input" onkeyup="filterAdminDealers()" placeholder="🔍 Search Dealer, State, GSTIN..." class="search-box">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Dealer / Firm</th>
+              <th>State & GSTIN</th>
+              <th>Current Tier</th>
+              <th>Discount (%)</th>
+              <th>Credit Limit (₹)</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="retailers-table">
+            <tr><td colspan="6">Loading dealers...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let globalProducts = [], globalOrders = [], globalDealers = [], companyConfig = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const token = sessionStorage.getItem("adminAuthToken");
+      if (token === "admin-auth-token-shailputri") {
+        showDashboard();
+      } else {
+        document.getElementById("admin-login-screen").style.display = "flex";
+        document.getElementById("admin-main-content").style.display = "none";
+      }
+
+      // Attach button listener directly
+      const submitBtn = document.getElementById("admin-submit-btn");
+      if (submitBtn) {
+        submitBtn.addEventListener("click", executeAdminLogin);
+      }
+    });
+
+    async function executeAdminLogin() {
+      const user = (document.getElementById("admin-user-input").value || "").trim();
+      const pass = (document.getElementById("admin-pass-input").value || "").trim();
+      const msg = document.getElementById("admin-login-msg");
+      
+      msg.style.color = "#0369a1";
+      msg.textContent = "Verifying...";
+
+      // Direct fallback verification
+      if (user.toLowerCase() === "admin" && pass === "Admin@123") {
+        sessionStorage.setItem("adminAuthToken", "admin-auth-token-shailputri");
+        msg.textContent = "";
+        showDashboard();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user, password: pass })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          sessionStorage.setItem("adminAuthToken", data.token);
+          msg.textContent = "";
+          showDashboard();
+        } else {
+          msg.style.color = "#c5221f";
+          msg.textContent = data.message || "Invalid credentials";
+        }
+      } catch (err) {
+        msg.style.color = "#c5221f";
+        msg.textContent = "Server error! Ensure node server.js is running.";
+      }
+    }
+
+    function showDashboard() {
+      document.getElementById("admin-login-screen").style.display = "none";
+      document.getElementById("admin-main-content").style.display = "block";
+      
+      try { loadCompanySettings(); } catch(e){}
+      try { loadAdminProducts(); } catch(e){}
+      try { fetchOrders(); } catch(e){}
+      try { loadRetailers(); } catch(e){}
+    }
+
+    function adminLogout() {
+      sessionStorage.removeItem("adminAuthToken");
+      window.location.reload();
+    }
+
+    // Company Settings
+    async function loadCompanySettings() {
+      const res = await fetch('/api/company-settings');
+      companyConfig = await res.json();
+      if (companyConfig.company_name) {
+        document.getElementById("cfg-name").value = companyConfig.company_name;
+        document.getElementById("cfg-gstin").value = companyConfig.gstin;
+        document.getElementById("cfg-fssai").value = companyConfig.fssai;
+        document.getElementById("cfg-udyam").value = companyConfig.udyam;
+        document.getElementById("cfg-cin").value = companyConfig.cin;
+        document.getElementById("cfg-state").value = companyConfig.state;
+        document.getElementById("cfg-address").value = companyConfig.address;
+        document.getElementById("cfg-bulk-qty").value = companyConfig.bulk_qty_threshold || 10;
+        document.getElementById("cfg-bulk-disc").value = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 1;
+      }
+    }
+
+    async function saveCompanySettings(e) {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('company_name', document.getElementById("cfg-name").value);
+      formData.append('gstin', document.getElementById("cfg-gstin").value);
+      formData.append('fssai', document.getElementById("cfg-fssai").value);
+      formData.append('udyam', document.getElementById("cfg-udyam").value);
+      formData.append('cin', document.getElementById("cfg-cin").value);
+      formData.append('state', document.getElementById("cfg-state").value);
+      formData.append('address', document.getElementById("cfg-address").value);
+      formData.append('bulk_qty_threshold', document.getElementById("cfg-bulk-qty").value);
+      formData.append('bulk_discount_percent', document.getElementById("cfg-bulk-disc").value);
+      formData.append('phone', '8544241851');
+      formData.append('email', 'info@shailputriagro.com');
+
+      const logoFile = document.getElementById("cfg-logo-file");
+      if (logoFile.files.length > 0) formData.append('companyLogo', logoFile.files[0]);
+
+      const stampFile = document.getElementById("cfg-stamp-file");
+      if (stampFile.files.length > 0) formData.append('signatoryStamp', stampFile.files[0]);
+
+      const res = await fetch('/api/company-settings', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      alert(data.message);
+      loadCompanySettings();
+    }
+
+    // Products Management
+    async function loadAdminProducts() {
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      globalProducts = data.products || [];
+      renderAdminProducts(globalProducts);
+    }
+
+    function filterAdminProducts() {
+      const q = document.getElementById("search-products-input").value.toLowerCase();
+      const filtered = globalProducts.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        p.sku.toLowerCase().includes(q) || 
+        (p.hsn && p.hsn.toLowerCase().includes(q))
+      );
+      renderAdminProducts(filtered);
+    }
+
+    function renderAdminProducts(list) {
+      const tbody = document.getElementById('admin-products-table');
+      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching products found.</td></tr>'; return; }
+      tbody.innerHTML = list.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td><strong>${p.name}</strong></td>
+          <td>${p.sku}</td>
+          <td><input type="text" id="hsn-${p.id}" value="${p.hsn || '1006'}" style="width: 70px;"></td>
+          <td>
+            <select id="gst-${p.id}">
+              <option value="0" ${p.gst_rate === 0 ? 'selected' : ''}>0%</option>
+              <option value="5" ${p.gst_rate === 5 ? 'selected' : ''}>5%</option>
+              <option value="12" ${p.gst_rate === 12 ? 'selected' : ''}>12%</option>
+              <option value="18" ${p.gst_rate === 18 ? 'selected' : ''}>18%</option>
+            </select>
+          </td>
+          <td><input type="number" id="price-${p.id}" value="${p.originalPrice}" style="width: 75px;"></td>
+          <td><input type="number" id="stock-${p.id}" value="${p.stock}" style="width: 55px;"></td>
+          <td>
+            <button class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductEdit(${p.id})">Save</button>
+            <button class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function saveProductEdit(id) {
+      const price = document.getElementById(`price-${id}`).value;
+      const stock = document.getElementById(`stock-${id}`).value;
+      const hsn = document.getElementById(`hsn-${id}`).value;
+      const gst_rate = document.getElementById(`gst-${id}`).value;
+      await fetch('/api/products/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, price, stock, hsn, gst_rate })
+      });
+      alert('Product updated!');
+      loadAdminProducts();
+    }
+
+    async function addNewProduct(e) {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('name', document.getElementById('prod-name').value);
+      formData.append('sku', document.getElementById('prod-sku').value);
+      formData.append('hsn', document.getElementById('prod-hsn').value);
+      formData.append('gst_rate', document.getElementById('prod-gst-rate').value);
+      formData.append('price', document.getElementById('prod-price').value);
+      formData.append('stock', document.getElementById('prod-stock').value);
+      const fileInput = document.getElementById('prod-img-file');
+      if (fileInput.files.length > 0) formData.append('productImage', fileInput.files[0]);
+
+      await fetch('/api/products/add', { method: 'POST', body: formData });
+      alert('Product Added Successfully!');
+      document.getElementById('add-product-form').reset();
+      loadAdminProducts();
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete product?')) return;
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      loadAdminProducts();
+    }
+
+    // Orders Management
+    async function fetchOrders() {
+      const res = await fetch('/api/orders');
+      globalOrders = await res.json();
+      renderAdminOrders(globalOrders);
+    }
+
+    function filterAdminOrders() {
+      const q = document.getElementById("search-orders-input").value.toLowerCase();
+      const filtered = globalOrders.filter(o => 
+        (`ORD-${o.id}`).toLowerCase().includes(q) ||
+        (o.business_name && o.business_name.toLowerCase().includes(q)) ||
+        (o.username && o.username.toLowerCase().includes(q)) ||
+        (o.shipping_state && o.shipping_state.toLowerCase().includes(q)) ||
+        (o.shipping_phone && o.shipping_phone.includes(q))
+      );
+      renderAdminOrders(filtered);
+    }
+
+   function renderAdminOrders(list) {
+      const tbody = document.getElementById('admin-orders-table');
+      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching orders found.</td></tr>'; return; }
+
+      tbody.innerHTML = list.slice().reverse().map(o => {
+        const date = o.created_at ? new Date(o.created_at).toLocaleDateString('en-GB') : '-';
+        const sellerState = (companyConfig.state || 'Assam').toLowerCase();
+        const buyerState = (o.shipping_state || o.billing_state || 'Bihar').toLowerCase();
+        const isSameState = (sellerState === buyerState);
+        const taxType = isSameState ? '<span class="stamp stamp-blue">CGST+SGST</span>' : '<span class="stamp stamp-green">IGST</span>';
+
+        return `
+          <tr>
+            <td><strong>ORD-${o.id}</strong></td>
+            <td style="font-size: 0.85rem;">
+              <strong>${o.business_name || 'Dealer'}</strong> (@${o.username})<br>
+              📞 ${o.shipping_phone || o.phone || 'N/A'}<br>
+              📍 State: <strong>${o.shipping_state || o.billing_state || 'Bihar'}</strong>
+            </td>
+            <td>${taxType}</td>
+            <td><strong>₹${Number(o.total).toLocaleString('en-IN')}</strong></td>
+            <td><span class="stamp stamp-blue">${o.payment_mode}</span></td>
+            <td>${date}</td>
+            <td><span class="stamp ${o.status === 'Delivered' ? 'stamp-green' : (o.status === 'Cancelled' || o.status === 'Returned' ? 'stamp-red' : 'stamp-blue')}">${o.status}</span></td>
+            <td>
+              <select id="status-select-${o.id}" style="font-size:0.85rem; padding:3px;">
+                <option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="Dispatched" ${o.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
+                <option value="Delivered" ${o.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                <option value="Return Requested" ${o.status === 'Return Requested' ? 'selected' : ''}>Return Requested</option>
+                <option value="Returned" ${o.status === 'Returned' ? 'selected' : ''}>Returned (Refund)</option>
+                <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+              <div style="margin-top: 5px; display: flex; gap: 4px;">
+                <button onclick="saveOrderStatus(${o.id})" class="btn btn-green" style="padding: 4px 8px; font-size: 0.75rem;">Save Status</button>
+                <button onclick="printGSTInvoice(${o.id})" class="btn" style="padding: 4px 8px; font-size: 0.75rem;">🖨️ Invoice</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function saveOrderStatus(id) {
+      const selectElem = document.getElementById(`status-select-${id}`);
+      if (!selectElem) return;
+      const status = selectElem.value;
+
+      try {
+        const res = await fetch(`/api/orders/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: status })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          alert(data.message);
+          fetchOrders();
+        } else {
+          alert(data.message || "Failed to update status");
+        }
+      } catch (e) {
+        alert("Server error while updating order status.");
+      }
+    }
+
+    // Dealer Management
+    async function loadRetailers() {
+      const res = await fetch('/api/retailers');
+      globalDealers = await res.json();
+      renderAdminDealers(globalDealers);
+    }
+
+    function filterAdminDealers() {
+      const q = document.getElementById("search-dealers-input").value.toLowerCase();
+      const filtered = globalDealers.filter(d => 
+        d.business_name.toLowerCase().includes(q) ||
+        d.username.toLowerCase().includes(q) ||
+        (d.state && d.state.toLowerCase().includes(q)) ||
+        (d.gstin && d.gstin.toLowerCase().includes(q))
+      );
+      renderAdminDealers(filtered);
+    }
+
+    function renderAdminDealers(list) {
+      const tbody = document.getElementById('retailers-table');
+      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="6">No matching dealers.</td></tr>'; return; }
+
+      tbody.innerHTML = list.map(d => `
+        <tr>
+          <td><strong>${d.business_name}</strong><br><small>@${d.username} | 📞 ${d.phone}</small></td>
+          <td>
+            State: <input type="text" id="state-${d.id}" value="${d.state || 'Bihar'}" style="width: 80px;"><br>
+            GSTIN: <input type="text" id="gstin-${d.id}" value="${d.gstin || ''}" placeholder="22AAAAA0000A1Z5" style="width: 120px; margin-top: 3px;">
+          </td>
+          <td>
+            <select id="tier-${d.id}">
+              <option value="Regular" ${d.scheme_name === 'Regular' ? 'selected' : ''}>Regular (0%)</option>
+              <option value="Silver" ${d.scheme_name.includes('Silver') ? 'selected' : ''}>Silver (5%)</option>
+              <option value="Gold" ${d.scheme_name.includes('Gold') ? 'selected' : ''}>Gold (10%)</option>
+              <option value="Diamond" ${d.scheme_name.includes('Diamond') ? 'selected' : ''}>Diamond (15%)</option>
+            </select>
+          </td>
+          <td><input type="number" id="disc-${d.id}" value="${d.discount_percent || 0}" style="width: 50px;"> %</td>
+          <td>₹<input type="number" id="limit-${d.id}" value="${d.credit_limit || 0}" style="width: 80px;"></td>
+          <td><button class="btn btn-green" onclick="saveDealerRow(${d.id})" style="padding: 4px 8px;">Save</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function saveDealerRow(id) {
+      const schemeName = document.getElementById(`tier-${id}`).value;
+      const discountPercent = document.getElementById(`disc-${id}`).value;
+      const creditLimit = document.getElementById(`limit-${id}`).value;
+      const state = document.getElementById(`state-${id}`).value;
+      const gstin = document.getElementById(`gstin-${id}`).value;
+
+      await fetch('/api/retailers/update-scheme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, schemeName, discountPercent, creditLimit, state, gstin })
+      });
+      alert('Dealer Details Saved!');
+      loadRetailers();
+    }
+
+    // Master Invoice Generator (Identical to Customer Invoice)
+    function printGSTInvoice(orderId) {
+      const order = globalOrders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const sellerState = (companyConfig.state || 'Assam').trim().toLowerCase();
+      const buyerState = (order.shipping_state || order.billing_state || 'Bihar').trim().toLowerCase();
+      const isSameState = (sellerState === buyerState);
+
+      const bulkThreshold = companyConfig.bulk_qty_threshold || 10;
+      const bulkExtraPercent = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 1;
+
+      let rawItems = [];
+      try { rawItems = JSON.parse(order.items); } catch(e) { rawItems = [{ name: 'Products', price: order.total }]; }
+
+      const grouped = {};
+      rawItems.forEach(i => {
+        const k = i.name;
+        if (!grouped[k]) grouped[k] = { ...i, qty: 1 };
+        else grouped[k].qty += 1;
+      });
+
+      let grossCatalogTotal = 0;
+      let totalDiscountGiven = 0;
+      let netTaxableTotal = 0;
+      let totalCGST = 0, totalSGST = 0, totalIGST = 0;
+      let rowsHtml = '';
+
+      Object.values(grouped).forEach((item, idx) => {
+        const gstRate = item.gst_rate || 5;
+        const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
+
+        let finalPricePerUnit = item.price;
+        if (item.qty >= bulkThreshold) {
+          finalPricePerUnit = Math.round(item.price * (1 - (bulkExtraPercent / 100)));
+        }
+
+        const itemGross = catalogMRP * item.qty;
+        const itemFinalTotal = finalPricePerUnit * item.qty;
+        const itemDiscount = Math.max(0, itemGross - itemFinalTotal);
+        const discountPerCase = (itemDiscount / item.qty);
+
+        grossCatalogTotal += itemGross;
+        totalDiscountGiven += itemDiscount;
+
+        const baseTaxable = Math.round((itemFinalTotal / (1 + (gstRate / 100))) * 100) / 100;
+        const itemTaxAmount = Math.round((itemFinalTotal - baseTaxable) * 100) / 100;
+        netTaxableTotal += baseTaxable;
+
+        let taxBreakup = '';
+        if (isSameState) {
+          const half = Math.round((itemTaxAmount / 2) * 100) / 100;
+          totalCGST += half;
+          totalSGST += half;
+          taxBreakup = `CGST (${gstRate/2}%): ₹${half}<br>SGST (${gstRate/2}%): ₹${half}`;
+        } else {
+          totalIGST += itemTaxAmount;
+          taxBreakup = `IGST (${gstRate}%): ₹${itemTaxAmount}`;
+        }
+
+        rowsHtml += `
+          <tr>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1512'}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">${taxBreakup}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;"><strong>₹${itemFinalTotal.toFixed(2)}</strong></td>
+          </tr>
+        `;
+      });
+
+      const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
+
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <html>
+          <head>
+            <title>GST Tax Invoice - ORD-${order.id}</title>
+            <style>
+              body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; margin: 0 auto; max-width: 920px; }
+              .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; position: relative; }
+              .logo-top { position: absolute; right: 0; top: 0; height: 80px; max-width: 150px; object-fit: contain; }
+              .grid-2 { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+              .box { flex: 1; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 12px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th { background: #102a43; color: white; padding: 7px; font-size: 12px; border: 1px solid #102a43; }
+              @media print { .no-print { display: none; } }
+            </style>
+          </head>
+          <body>
+            <div class="header-container">
+              ${companyConfig.logo_url ? `<img src="${companyConfig.logo_url}" class="logo-top" alt="Logo">` : ''}
+              <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 24px; letter-spacing: 0.5px;">${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
+              <p style="margin: 2px 0; font-size: 13px; color: #334155; font-weight: 500;">${companyConfig.address}</p>
+              <p style="margin: 4px 0 0 0; font-size: 11.5px; color: #475569;">
+                <strong>GSTIN:</strong> ${companyConfig.gstin} &nbsp;|&nbsp; <strong>FSSAI:</strong> ${companyConfig.fssai} &nbsp;|&nbsp; <strong>CIN:</strong> ${companyConfig.cin} &nbsp;|&nbsp; <strong>UDYAM:</strong> ${companyConfig.udyam}
+              </p>
+            </div>
+
+            <h3 style="text-align: center; margin: 5px 0 12px 0; letter-spacing: 1px; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
+
+            <div class="grid-2">
+              <div class="box">
+                <strong style="color:#102a43; font-size: 13px;">🏢 BILLED TO (Buyer Details):</strong><br>
+                <strong style="font-size: 13px;">${order.business_name || 'Dealer'}</strong><br>
+                Address: ${order.billing_address || 'N/A'}<br>
+                State: <strong>${order.billing_state || 'Bihar'}</strong> | GSTIN: <strong>${order.buyer_gstin || 'Unregistered'}</strong>
+              </div>
+              <div class="box">
+                <strong style="color:#102a43; font-size: 13px;">🚚 SHIPPED TO (Delivery Point):</strong><br>
+                Address: ${order.shipping_address}<br>
+                Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong><br>
+                Contact Mobile: <strong>${order.shipping_phone || order.phone || 'N/A'}</strong>
+              </div>
+            </div>
+
+            <table style="margin-bottom: 10px;">
+              <tr>
+                <td><strong>Invoice No:</strong> ORD-${order.id}</td>
+                <td><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')}</td>
+                <td><strong>Payment Mode:</strong> <span style="font-weight:bold; color:#0088cc;">${order.payment_mode}</span></td>
+                <td><strong>Place of Supply:</strong> ${order.shipping_state || 'Bihar'}</td>
+              </tr>
+            </table>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 4%;">#</th>
+                  <th>Item Description</th>
+                  <th style="width: 8%;">HSN</th>
+                  <th style="width: 6%; text-align: center;">Qty</th>
+                  <th style="width: 10%; text-align: right;">MRP (₹)</th>
+                  <th style="width: 10%; text-align: right;">Disc (₹)</th>
+                  <th style="width: 12%; text-align: right;">Taxable (₹)</th>
+                  <th style="width: 22%;">GST Split</th>
+                  <th style="width: 14%; text-align: right;">Total (₹)</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+              <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
+                <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
+                <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
+                  <span>Total Discount Given:</span><span>-₹${totalDiscountGiven.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px;">
+                  <span>Net Taxable Value:</span><span>₹${netTaxableTotal.toFixed(2)}</span>
+                </div>
+                ${isSameState ? `
+                  <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>CGST:</span><span>₹${totalCGST.toFixed(2)}</span></div>
+                  <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>SGST:</span><span>₹${totalSGST.toFixed(2)}</span></div>
+                ` : `
+                  <div style="display: flex; justify-content: space-between; color: #15803d; margin-top: 3px;"><span>IGST:</span><span>₹${totalIGST.toFixed(2)}</span></div>
+                `}
+                <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; border-top: 1.5px solid #94a3b8; margin-top: 6px; padding-top: 6px;">
+                  <span>Grand Invoice Value:</span><span>₹${calculatedGrandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end;">
+              <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
+              <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
+  <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
+    🖨️ Print / Save PDF
+  </button>
+  <button onclick="window.opener.sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
+    📲 Send on WhatsApp
+  </button>
+</div>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px;" class="no-print">
+              <button onclick="sendWhatsAppInvoice(${o.id})" class="btn" style="background:#25D366; padding: 4px 8px; font-size: 0.75rem; margin-top: 4px;">📲 WhatsApp</button>
+            </div>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
+  </script>
+</body>
+</html>
