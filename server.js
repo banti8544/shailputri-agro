@@ -94,18 +94,20 @@ addCol('company_settings', 'bulk_discount_percent', 'INTEGER DEFAULT 3');
 addCol('company_settings', 'signatory_url', 'TEXT');
 addCol('company_settings', 'logo_url', 'TEXT');
 
-// Multer Storage Setup
-const imageStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const imagesDir = path.join(__dirname, '../images');
-    if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-    cb(null, imagesDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, 'img-' + Date.now() + path.extname(file.originalname));
+// Uploads / Images Directory Setup
+const uploadDir = path.join(__dirname, 'images');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `prod_${Date.now()}_${Math.round(Math.random() * 1E9)}${ext}`);
   }
 });
-const uploadImage = multer({ storage: imageStorage });
+const upload = multer({ storage });
 
 // 2. GST Proxy Lookup API
 app.get('/api/fetch-gst/:gstin', async (req, res) => {
@@ -439,6 +441,31 @@ app.post('/api/orders/:id/cancel', (req, res) => {
         db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
       } catch(e){}
     }
+    // API to update product with new image
+app.put('/api/products/:id', upload.single('image'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category, price, moq, unit, stock, description } = req.body;
+    
+    let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
+    let params = [name, category, price, moq, unit, stock, description];
+
+    // Agar nayi image upload ki gayi hai
+    if (req.file) {
+      query += `, image = ?`;
+      params.push(`images/${req.file.filename}`);
+    }
+
+    query += ` WHERE id = ?`;
+    params.push(id);
+
+    db.prepare(query).run(...params);
+    res.json({ success: true, message: 'Product & Image updated successfully' });
+  } catch (err) {
+    console.error('Update Product Error:', err);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
 
     // Safely Restore Inventory Stock
     try {
