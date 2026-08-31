@@ -530,17 +530,20 @@ app.post('/api/orders/:id/status', (req, res) => {
 // 8. Dealer Credit Statement & Safe Ledger API
 app.get('/api/credit-statement/:username', (req, res) => {
   try {
-    const username = (req.params.username || '').trim();
+    // Agar username me @ laga ho toh use saaf karein
+    let username = (req.params.username || '').trim().replace(/^@/, '');
+    
     if (!username) {
       return res.json({ success: false, message: 'Username required' });
     }
 
-    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?) LIMIT 1').get(username, '@' + username);
     
     if (!retailer) {
       return res.json({ success: false, message: 'Dealer profile not found' });
     }
 
+    const cleanUser = retailer.username;
     const assignedLimit = Number(retailer.credit_limit) || 0;
 
     let creditOrders = [];
@@ -548,9 +551,9 @@ app.get('/api/credit-statement/:username', (req, res) => {
       creditOrders = db.prepare(`
         SELECT id, total, created_at, 'Credit Order' as type 
         FROM orders 
-        WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit' AND status != 'Cancelled'
+        WHERE (LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)) AND payment_mode = 'Credit' AND status != 'Cancelled'
         ORDER BY id DESC
-      `).all(username) || [];
+      `).all(cleanUser, '@' + cleanUser) || [];
     } catch(e) {
       creditOrders = [];
     }
@@ -560,9 +563,9 @@ app.get('/api/credit-statement/:username', (req, res) => {
       repayments = db.prepare(`
         SELECT id, amount as total, created_at, 'Repayment' as type 
         FROM credit_repayments 
-        WHERE LOWER(username) = LOWER(?) 
+        WHERE (LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?))
         ORDER BY id DESC
-      `).all(username) || [];
+      `).all(cleanUser, '@' + cleanUser) || [];
     } catch(e) {
       repayments = [];
     }
@@ -586,7 +589,6 @@ app.get('/api/credit-statement/:username', (req, res) => {
     return res.json({ success: false, message: 'Failed to load statement' });
   }
 });
-
 // 9. Dealer Credit Repayment API
 app.post('/api/repay-credit', (req, res) => {
   try {
