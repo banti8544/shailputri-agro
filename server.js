@@ -429,20 +429,17 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     
     if (!order) return res.json({ success: false, message: "Order not found" });
-    if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
+if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
 
     // Restore Credit Limit
-  } catch(e) {}
-  }
+    if (order.payment_mode === 'Credit' && order.username) {
+      try {
+        db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
+      } catch(e) {}
+    }
 
-  return res.json({ success: true, message: "Order cancelled successfully" });
+    return res.json({ success: true, message: "Order cancelled successfully" });
 });
-
-// API to update product with new image
-app.put('/api/products/:id', upload.single('image'), (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, category, price, moq, unit, stock, description } = req.body;
 
     let query = `UPDATE products SET name = ?, category = ?, price = ?, moq = ?, unit = ?, stock = ?, description = ?`;
     let params = [name, category, price, moq, unit, stock, description];
