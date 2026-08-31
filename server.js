@@ -486,7 +486,109 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
   }
 });
 
-// Start Server
+// 7. Update Order Status API (Fixes "Server error while updating order status")
+app.post('/api/orders/:id/status', (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required' });
+    }
+
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Agar status Cancelled ya Returned kiya jaye toh Credit Limit aur Stock restore karein
+    if ((status === 'Cancelled' || status === 'Returned') && order.status !== status) {
+      if (order.payment_mode === 'Credit' && order.username) {
+        try {
+          db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
+        } catch(e) {}
+      }
+
+      try {
+        const items = JSON.parse(order.items || '[]');
+        items.forEach(item => {
+          if (item.id) {
+            db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
+          }
+        });
+      } catch(e) {}
+    }
+
+    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
+    res.json({ success: true, message: `Order #${orderId} status updated to ${status}!` });
+  } catch (err) {
+    console.error('Order status update error:', err);
+    res.status(500).json({ success: false, message: 'Server error while updating status' });
+  }
+});
+
+// 8. Dealer Credit Statement & Ledger API (Fixes "Failed to load statement")
+app.get('/api/credit-statement/:username', (req, res) => {
+  try {
+    const username = (req.params.username || '').trim();
+    const retailer = db.prepare('SELECT * FROM retailers WHERE LOWER(username) = LOWER(?) LIMIT 1').get(username);
+    
+    if (!retailer) {
+      return res.json({ success: false, message: 'Dealer not found' });
+    }
+
+    const assignedLimit = retailer.credit_limit || 0;
+    const creditOrders = db.prepare(`
+      SELECT id, total, created_at, 'Credit Used' as type 
+      FROM orders 
+      WHERE LOWER(username) = LOWER(?) AND payment_mode = 'Credit' AND status NOT IN ('Cancelled', 'Returned')
+      ORDER BY id DESC
+    `).all(username) || [];
+
+    const repayments = db.prepare(`
+      SELECT id, amount as total, created_at, 'Repayment' as type 
+      FROM credit_repayments 
+      WHERE LOWER(username) = LOWER(?) 
+      ORDER BY id DESC
+    `).all(username) || [];
+
+    const transactions = [...creditOrders, ...repayments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const totalCreditUsed = creditOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalRepaid = repayments.reduce((sum, r) => sum + (r.total || 0), 0);
+    const currentUsed = Math.max(0, totalCreditUsed - totalRepaid);
+    const availableLimit = Math.max(0, assignedLimit - currentUsed);
+
+    res.json({
+      success: true,
+      totalLimit: assignedLimit,
+      usedLimit: currentUsed,
+      availableLimit: availableLimit,
+      history: transactions
+    });
+  } catch (err) {
+    console.error('Statement error:', err);
+    res.json({ success: false, message: 'Failed to load statement' });
+  }
+});
+
+// 9. Dealer Credit Repayment API
+app.post('/api/repay-credit', (req, res) => {
+  try {
+    const { username, amount } = req.body;
+    const numAmount = parseInt(amount, 10);
+    if (!username || !numAmount || numAmount <= 0) {
+      return res.json({ success: false, message: 'Invalid payment amount' });
+    }
+
+    const createdAt = new Date().toISOString();
+    db.prepare('INSERT INTO credit_repayments (username, amount, created_at) VALUES (?, ?, ?)').run(username.trim(), numAmount, createdAt);
+
+    res.json({ success: true, message: `Repayment of ₹${numAmount} recorded successfully!` });
+  } catch (err) {
+    res.json({ success: false, message: err.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
