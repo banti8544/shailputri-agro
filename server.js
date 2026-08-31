@@ -434,10 +434,13 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     // Restore Credit Limit
     if (order.payment_mode === 'Credit' && order.username) {
       try {
-        db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?)').run(order.total, order.username);
-      } catch(e){}
-    }
-   // API to update product with new image
+} catch(e) {}
+  }
+  
+  return res.json({ success: true, message: "Order cancelled successfully" });
+});
+
+// API to update product with new image
 app.put('/api/products/:id', upload.single('image'), (req, res) => {
   try {
     const { id } = req.params;
@@ -460,15 +463,7 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
     console.error('Update Product Error:', err);
     res.status(500).json({ error: 'Failed to update product' });
   }
-});
-
-    // Agar nayi image upload ki gayi hai
-    if (req.file) {
-      query += `, image = ?`;
-      params.push(`images/${req.file.filename}`);
-    }
-
-    query += ` WHERE id = ?`;
+});    query += ` WHERE id = ?`;
     params.push(id);
 
     db.prepare(query).run(...params);
