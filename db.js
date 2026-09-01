@@ -99,15 +99,15 @@ try {
   `).run();
 } catch (e) {}
 
-// 4. Default Products Seed (Bulletproof Insert/Update)
+// 4. Default Products Seed with Real Images
 const defaultProducts = [
-  { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/placeholder.png' },
-  { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/placeholder.png' },
-  { name: 'Farm Fresh Assam Tea 250g', sku: 'SKU-3054', hsn: '0902', gst_rate: 5, price: 2160, stock: 80, category: 'Tea & Beverages', image_url: 'images/placeholder.png' },
-  { name: 'Sparkle Dish Wash 500ml', sku: 'SKU-4410', hsn: '3402', gst_rate: 5, price: 1890, stock: 60, category: 'Cleaning Essentials', image_url: 'images/placeholder.png' },
-  { name: 'MUSTERD CAKE (सरसों खली)', sku: 'SKU-6678', hsn: '2306', gst_rate: 5, price: 1500, stock: 100, category: 'PASU AHAR', image_url: 'images/placeholder.png' },
-  { name: 'Soyabin Refined Sunflower Oil 1L', sku: 'SKU-2202', hsn: '1507', gst_rate: 5, price: 1500, stock: 50, category: 'Edible Oils', image_url: 'images/placeholder.png' },
-  { name: 'DALOMOT (दालमोट)', sku: 'SKU-3209', hsn: '2106', gst_rate: 12, price: 750, stock: 50, category: 'Bhujia & Mixtures', image_url: 'images/placeholder.png' },
+  { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/oil.jpg' },
+  { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/atta.jpg' },
+  { name: 'Farm Fresh Assam Tea 250g', sku: 'SKU-3054', hsn: '0902', gst_rate: 5, price: 2160, stock: 80, category: 'Tea & Beverages', image_url: 'images/tea.jpg' },
+  { name: 'Sparkle Dish Wash 500ml', sku: 'SKU-4410', hsn: '3402', gst_rate: 5, price: 1890, stock: 60, category: 'Cleaning Essentials', image_url: 'images/dishwash.jpg' },
+  { name: 'MUSTERD CAKE (सरसों खली)', sku: 'SKU-6678', hsn: '2306', gst_rate: 5, price: 1500, stock: 100, category: 'PASU AHAR', image_url: 'images/mustard.jpg' },
+  { name: 'Soyabin Refined Sunflower Oil 1L', sku: 'SKU-2202', hsn: '1507', gst_rate: 5, price: 1500, stock: 50, category: 'Edible Oils', image_url: 'images/Soyabin.jpg' },
+  { name: 'DALOMOT (दालमोट)', sku: 'SKU-3209', hsn: '2106', gst_rate: 12, price: 750, stock: 50, category: 'Bhujia & Mixtures', image_url: 'images/chanachur.jpg' },
   { name: 'Phool Makhana Grade-A 250g (फूल मखाना)', sku: 'SKU-9901', hsn: '1904', gst_rate: 5, price: 2400, stock: 120, category: 'Dry Fruits & Makhana', image_url: 'images/makhana.jpg' }
 ];
 
