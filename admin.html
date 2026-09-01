@@ -165,6 +165,17 @@
       <!-- 3. Manage Products with Search & Image Upload -->
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+<!-- Manage Categories Section -->
+<div class="card-box">
+  <h2>📁 Manage Categories</h2>
+  <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: center;">
+    <input type="text" id="new-category-name" placeholder="Enter new category name (e.g. Dry Fruits, Spices)" class="search-box" style="flex: 1;">
+    <button onclick="addNewCategory()" class="btn btn-green">+ Add Category</button>
+  </div>
+  <div id="admin-category-badges" style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <!-- Badges Loaded Dynamically -->
+  </div>
+</div>
           <h2>3. Manage Products</h2>
           <input type="text" id="search-products-input" onkeyup="filterAdminProducts()" placeholder="🔍 Search Product Name, SKU, HSN..." class="search-box">
         </div>
