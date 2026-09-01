@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#70b028">
+  <meta name="theme-color" content="#70b028">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shailputri Agro Foods - Wholesale B2B Grocery</title>
@@ -99,7 +99,6 @@
 </head>
 <body>
 
-  <!-- Top Info Bar -->
   <div class="top-bar">
     <div>Welcome to <strong>Shailputri Agro Foods</strong> B2B Wholesale Market</div>
     <div>
@@ -108,7 +107,6 @@
     </div>
   </div>
 
-  <!-- Header -->
   <header>
     <div class="logo-box">
       <h1 onclick="showSection('catalog')" style="cursor:pointer;"><span>🌱 Shailputri</span> Grocery</h1>
@@ -121,8 +119,7 @@
 
     <div class="header-actions">
       <div id="auth-header-slot">
-        <!-- Injected dynamically: Login/Register OR User Info Badge -->
-      </div>
+        </div>
       
       <button class="btn-cart" onclick="showSection('cart')">
         🛒 <span id="cart-nav-badge">Cart (0)</span>
@@ -130,7 +127,6 @@
     </div>
   </header>
 
-  <!-- Navigation -->
   <nav>
     <div class="category-btn-nav">☰ Wholesale Categories</div>
     <a href="javascript:void(0)" onclick="showSection('catalog')">Shop Catalog</a>
@@ -138,10 +134,8 @@
     <a href="javascript:void(0)" onclick="showSection('profile')">Business Profile & GST</a>
   </nav>
 
-  <!-- Main Container -->
   <div class="main-wrapper">
     
-    <!-- Left Category Sidebar -->
     <div class="sidebar">
       <div class="category-card">
         <h3>Categories</h3>
@@ -158,10 +152,8 @@
       </div>
     </div>
 
-    <!-- Right Dynamic Content -->
     <div class="content-area">
       
-      <!-- 1. Catalog Section (Visible to Everyone by Default) -->
       <div id="catalog-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h2 style="margin:0; color: var(--navy);" id="catalog-heading">All Wholesale Products</h2>
@@ -172,7 +164,6 @@
         </div>
       </div>
 
-      <!-- 2. Cart & Checkout Section -->
       <section id="cart-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Your Wholesale Cart</h2>
         <div id="cart-items">
@@ -180,7 +171,6 @@
         </div>
         <div id="cart-total-display" style="text-align: right; font-size: 1.3rem; font-weight: bold; margin: 1.5rem 0; color: var(--navy);">Total: ₹0</div>
 
-        <!-- Auth Guard Reminder for Guests -->
         <div id="guest-checkout-prompt" style="display: none; background: #fffbeb; border: 1px solid #fef08a; padding: 1rem; border-radius: 6px; margin: 1rem 0;">
           <h4 style="margin: 0 0 0.4rem 0; color: #854d0e;">⚠️ Dealer Login Required to Confirm Order</h4>
           <p style="margin: 0 0 0.8rem 0; font-size: 0.9rem; color: #713f12;">Items are saved in your cart! Please Login or Register your business to place the order.</p>
@@ -190,7 +180,6 @@
           </div>
         </div>
 
-        <!-- Shipping Destination (For Logged in Dealers) -->
         <div id="shipping-address-box" style="margin: 1.5rem 0; padding: 1.2rem; border: 2px solid #0088cc; border-radius: 8px; background: #f0f9ff;">
           <h3 style="margin: 0 0 0.6rem 0; color: var(--navy); font-size: 1.1rem;">🚚 Delivery / Shipping Destination (Ship To)</h3>
           
@@ -217,27 +206,19 @@
           </div>
         </div>
 
-        <!-- Payment Mode Selection -->
         <div id="payment-mode-box" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;">
           <h4 style="margin: 0 0 0.8rem 0; color: var(--navy);">Select Payment Method:</h4>
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Online" checked onchange="togglePaymentUI()"> <strong>Online / UPI QR</strong></label>
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="COD" onchange="togglePaymentUI()"> <strong>Cash on Delivery (COD)</strong></label>
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Credit" onchange="togglePaymentUI()"> <strong>Pay via Credit Limit (उधारी)</strong></label>
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Online" checked> <strong>Online / UPI / Cards / NetBanking</strong></label>
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="COD"> <strong>Cash on Delivery (COD)</strong></label>
+            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Credit"> <strong>Pay via Credit Limit (उधारी)</strong></label>
           </div>
-        </div>
-
-        <!-- Dynamic UPI QR -->
-        <div id="upi-qr-box" style="margin: 1rem 0; padding: 1rem; border: 1px dashed #0088cc; border-radius: 6px; text-align: center; background: #f0f9ff;">
-          <h4 style="margin: 0 0 0.5rem 0;">Scan UPI QR to Pay</h4>
-          <img id="upi-qr-image" src="" alt="UPI QR" style="width: 150px; height: 150px;">
         </div>
 
         <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer;">Place Wholesale Order</button>
         <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
       </section>
 
-      <!-- 3. Ledger Section -->
       <section id="ledger-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy);">My Ledger & Invoices</h2>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
@@ -253,7 +234,6 @@
         <div id="recent-orders-list">Loading...</div>
       </section>
 
-      <!-- 4. Profile Section -->
       <section id="profile-section" style="display: none; max-width: 650px; margin: 0 auto;">
         <h2 style="margin-top: 0; color: var(--navy);">🏢 Business Profile & GST Master</h2>
         <form onsubmit="saveCustomerProfile(event)">
@@ -302,7 +282,6 @@
     </div>
   </div>
 
-  <!-- 5. Quick View Product Modal (Large Image, Tier Discount, + / - Controls) -->
   <div id="quickview-modal" class="qv-modal">
     <div class="qv-box">
       <button class="qv-close" onclick="closeQuickView()">✕</button>
@@ -321,7 +300,6 @@
           </div>
           <p id="qv-meta" style="font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem 0;">SKU: --- | HSN: ---</p>
 
-          <!-- Wholesale Bulk Tier Pricing Matrix -->
           <table class="tier-table">
             <thead>
               <tr>
@@ -355,7 +333,6 @@
     </div>
   </div>
 
-  <!-- Credit Statement & Repayment Modal -->
   <div id="credit-modal" class="qv-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
     <div class="qv-box" style="background: white; border-radius: 8px; padding: 1.5rem; width: 90%; max-width: 650px; display: block; max-height: 85vh; overflow-y: auto; position: relative;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--navy); padding-bottom: 0.5rem;">
@@ -363,7 +340,6 @@
         <button type="button" onclick="closeCreditLedgerModal()" style="background:#cbd5e1; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">✕</button>
       </div>
 
-      <!-- Balance Cards -->
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 1rem 0; text-align: center;">
         <div style="background:#f0fdf4; padding:10px; border-radius:6px; border:1px solid #bbf7d0;">
           <small style="color:#166534; font-weight:bold;">Total Limit</small>
@@ -379,14 +355,12 @@
         </div>
       </div>
 
-      <!-- Repay Toggle Button -->
       <div style="text-align: right; margin-bottom: 1rem;">
         <button type="button" onclick="toggleRepaySection()" style="background:#102a43; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">
           💳 Repay Due Balance (उधारी चुकता करें)
         </button>
       </div>
 
-      <!-- Repay QR & Amount Form -->
       <div id="repay-section" style="display: none; background:#f8fafc; border:1px solid #cbd5e1; padding:1rem; border-radius:6px; margin-bottom:1rem;">
         <h4 style="margin:0 0 0.5rem 0; color:#102a43;">Scan UPI QR to Clear Due Balance:</h4>
         <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
@@ -406,78 +380,74 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
-</script>
-  <!-- Online Payment Gateway Modal -->
-<div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; justify-content: center; align-items: center;">
-  <div style="background: white; width: 92%; max-width: 460px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #102a43; padding-bottom: 8px;">
-      <h3 style="margin: 0; color: #102a43;">💳 Shailputri Secure Checkout</h3>
-      <button onclick="closePaymentGateway()" style="background: #cbd5e1; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
-    </div>
+  <div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="background: white; width: 92%; max-width: 460px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #102a43; padding-bottom: 8px;">
+        <h3 style="margin: 0; color: #102a43;">💳 Shailputri Secure Checkout</h3>
+        <button onclick="closePaymentGateway()" style="background: #cbd5e1; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
+      </div>
 
-    <div style="text-align: center; margin: 12px 0;">
-      <div style="font-size: 0.9rem; color: #64748b;">Payable Order Amount:</div>
-      <div id="gateway-total-display" style="font-size: 1.6rem; font-weight: bold; color: #15803d;">₹0</div>
-    </div>
+      <div style="text-align: center; margin: 12px 0;">
+        <div style="font-size: 0.9rem; color: #64748b;">Payable Order Amount:</div>
+        <div id="gateway-total-display" style="font-size: 1.6rem; font-weight: bold; color: #15803d;">₹0</div>
+      </div>
 
-    <!-- Payment Options Tabs -->
-    <div style="display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
-      <button class="pg-tab" onclick="switchPaymentTab('upi')" style="flex:1; padding: 6px; background:#102a43; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">UPI / QR</button>
-      <button class="pg-tab" onclick="switchPaymentTab('cards')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Debit/Credit Card</button>
-      <button class="pg-tab" onclick="switchPaymentTab('netbanking')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Net Banking</button>
-    </div>
+      <div style="display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
+        <button class="pg-tab" onclick="switchPaymentTab('upi')" style="flex:1; padding: 6px; background:#102a43; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">UPI / QR</button>
+        <button class="pg-tab" onclick="switchPaymentTab('cards')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Debit/Credit Card</button>
+        <button class="pg-tab" onclick="switchPaymentTab('netbanking')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Net Banking</button>
+      </div>
 
-    <!-- UPI & Dynamic QR View -->
-    <div id="pg-tab-upi" style="text-align: center;">
-      <p style="font-size: 0.85rem; color: #334155; margin: 4px 0;">Scan QR with <strong>GPay, PhonePe, Paytm, BHIM</strong></p>
-      <img id="gateway-upi-qr" src="" alt="UPI QR" style="width: 160px; height: 160px; border: 1px solid #cbd5e1; border-radius: 6px; margin: 6px 0;">
-      <br>
-      <button onclick="simulatePaymentSuccess('UPI/QR')" style="margin-top: 10px; width: 100%; background: #137333; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-        ✅ Paid via UPI / Confirm Order
-      </button>
-    </div>
+      <div id="pg-tab-upi" style="text-align: center;">
+        <p style="font-size: 0.85rem; color: #334155; margin: 4px 0;">Scan QR with <strong>GPay, PhonePe, Paytm, BHIM</strong></p>
+        <img id="gateway-upi-qr" src="" alt="UPI QR" style="width: 160px; height: 160px; border: 1px solid #cbd5e1; border-radius: 6px; margin: 6px 0;">
+        <br>
+        <button onclick="simulatePaymentSuccess('UPI/QR')" style="margin-top: 10px; width: 100%; background: #137333; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+          ✅ Paid via UPI / Confirm Order
+        </button>
+      </div>
 
-    <!-- Cards View -->
-    <div id="pg-tab-cards" style="display: none;">
-      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
-        <label>Card Number
-          <input type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-        </label>
-        <div style="display: flex; gap: 8px;">
-          <label style="flex: 1;">Expiry (MM/YY)
-            <input type="text" placeholder="12/28" maxlength="5" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+      <div id="pg-tab-cards" style="display: none;">
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+          <label>Card Number
+            <input type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
           </label>
-          <label style="width: 80px;">CVV
-            <input type="password" placeholder="•••" maxlength="3" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-          </label>
+          <div style="display: flex; gap: 8px;">
+            <label style="flex: 1;">Expiry (MM/YY)
+              <input type="text" placeholder="12/28" maxlength="5" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+            </label>
+            <label style="width: 80px;">CVV
+              <input type="password" placeholder="•••" maxlength="3" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+            </label>
+          </div>
+          <button onclick="simulatePaymentSuccess('Debit/Credit Card')" style="margin-top: 10px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            Pay & Confirm Order
+          </button>
         </div>
-        <button onclick="simulatePaymentSuccess('Debit/Credit Card')" style="margin-top: 10px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-          Pay & Confirm Order
+      </div>
+
+      <div id="pg-tab-netbanking" style="display: none; font-size: 0.85rem;">
+        <label>Select Your Bank:
+          <select style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+            <option>State Bank of India (SBI)</option>
+            <option>HDFC Bank</option>
+            <option>ICICI Bank</option>
+            <option>Axis Bank</option>
+            <option>Punjab National Bank</option>
+          </select>
+        </label>
+        <button onclick="simulatePaymentSuccess('Net Banking')" style="margin-top: 15px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+          Proceed to Bank & Place Order
         </button>
       </div>
     </div>
-
-    <!-- Net Banking View -->
-    <div id="pg-tab-netbanking" style="display: none; font-size: 0.85rem;">
-      <label>Select Your Bank:
-        <select style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
-          <option>State Bank of India (SBI)</option>
-          <option>HDFC Bank</option>
-          <option>ICICI Bank</option>
-          <option>Axis Bank</option>
-          <option>Punjab National Bank</option>
-        </select>
-      </label>
-      <button onclick="simulatePaymentSuccess('Net Banking')" style="margin-top: 15px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-        Proceed to Bank & Place Order
-      </button>
-    </div>
   </div>
-</div>
+
+  <script src="script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
 </body>
 </html>
