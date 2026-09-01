@@ -383,8 +383,8 @@ function togglePaymentUI() {
   if (qrBox) qrBox.style.display = (mode === "Online" && cart.length > 0) ? "block" : "none";
 }
 
-// 4. Place Wholesale Order
-async function placeOrder() {
+// Trigger Online Checkout Modal or Instant COD/Credit
+function placeOrder() {
   if (!loggedInUser) {
     alert("Please login to place wholesale orders!");
     window.location.href = "login.html";
@@ -392,6 +392,46 @@ async function placeOrder() {
   }
   if (cart.length === 0) return alert("Your cart is empty!");
 
+  const paymentMode = document.querySelector('input[name="paymentMethod"]:checked').value;
+  let total = 0;
+  cart.forEach(item => {
+    const effPrice = getEffectiveItemPrice(item);
+    total += (effPrice * item.qty);
+  });
+
+  if (paymentMode === "Credit" && total > currentCreditLimit) {
+    return alert(`Cannot place order on Credit! Order Total exceeds available Credit Limit (₹${currentCreditLimit}).`);
+  }
+
+  if (paymentMode === "Online") {
+    // Open Online Payment Gateway
+    document.getElementById("gateway-total-display").textContent = `₹${total.toLocaleString('en-IN')}`;
+    const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
+    document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiLink)}`;
+    document.getElementById("payment-gateway-modal").style.display = "flex";
+  } else {
+    // Direct submit for COD or Credit
+    executeFinalOrder(paymentMode);
+  }
+}
+
+function closePaymentGateway() {
+  document.getElementById("payment-gateway-modal").style.display = "none";
+}
+
+function switchPaymentTab(tab) {
+  document.getElementById("pg-tab-upi").style.display = (tab === 'upi') ? 'block' : 'none';
+  document.getElementById("pg-tab-cards").style.display = (tab === 'cards') ? 'block' : 'none';
+  document.getElementById("pg-tab-netbanking").style.display = (tab === 'netbanking') ? 'block' : 'none';
+}
+
+function simulatePaymentSuccess(method) {
+  closePaymentGateway();
+  executeFinalOrder(`Online (${method})`);
+}
+
+// Final Order API Submission
+async function executeFinalOrder(finalPaymentMode) {
   let total = 0;
   const orderedItems = [];
   cart.forEach(item => {
@@ -410,7 +450,6 @@ async function placeOrder() {
     }
   });
 
-  const paymentMode = document.querySelector('input[name="paymentMethod"]:checked').value;
   const shipTextarea = document.getElementById("cart-shipping-address");
   const shipPhoneInput = document.getElementById("cart-shipping-phone");
   const shipStateSelect = document.getElementById("cart-shipping-state");
@@ -419,15 +458,19 @@ async function placeOrder() {
   const shippingPhone = shipPhoneInput?.value.trim() || localStorage.getItem("phone") || "";
   const shippingState = shipStateSelect ? shipStateSelect.value : "Bihar";
 
-  if (paymentMode === "Credit" && total > currentCreditLimit) {
-    return alert(`Cannot place order on Credit! Order Total exceeds available Credit Limit (₹${currentCreditLimit}).`);
-  }
-
   try {
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: orderedItems, total, username: loggedInUser, paymentMode, shippingAddress, shippingPhone, shippingState })
+      body: JSON.stringify({ 
+        items: orderedItems, 
+        total, 
+        username: loggedInUser, 
+        paymentMode: finalPaymentMode, 
+        shippingAddress, 
+        shippingPhone, 
+        shippingState 
+      })
     });
     const data = await res.json();
 
@@ -442,8 +485,8 @@ async function placeOrder() {
       actionsDiv.style.display = "block";
       actionsDiv.innerHTML = `
         <div style="background:#e6f4ea; padding:1.5rem; border-radius:8px; text-align:center; border:1px solid #c6ebd0;">
-          <h3 style="color:#137333; margin:0 0 0.5rem 0;">🎉 Order #ORD-${data.orderId} Placed (${paymentMode})!</h3>
-          <p style="margin:0 0 1rem 0; color:#475569;">Total Amount: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
+          <h3 style="color:#137333; margin:0 0 0.5rem 0;">🎉 Order #ORD-${data.orderId} Confirmed (${finalPaymentMode})!</h3>
+          <p style="margin:0 0 1rem 0; color:#475569;">Payment Recorded Successfully! Total Amount: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
           <div style="display:flex; justify-content:center; gap:10px;">
             <button onclick="showSection('ledger')" style="background:#102a43; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📄 View in Ledger</button>
             <button onclick="showSection('catalog')" style="background:#70b028; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">🛍️ Continue Shopping</button>
@@ -457,7 +500,6 @@ async function placeOrder() {
     alert("Server error while placing order.");
   }
 }
-
 // 5. Navigation
 function showSection(sectionId) {
   document.getElementById("catalog-section").style.display = (sectionId === 'catalog') ? 'block' : 'none';
