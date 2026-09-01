@@ -509,12 +509,6 @@ async function executeFinalOrder(finalPaymentMode) {
           </div>
         </div>
       `;
-
-      // Auto-Popup Free WhatsApp Invoice
-      setTimeout(() => {
-        sendWhatsAppInvoice(data.orderId);
-      }, 1000);
-
     } else {
       alert(data.message || "Order failed.");
     }
@@ -582,7 +576,7 @@ async function loadLedgerOrders() {
 
           <div style="display:flex; gap:6px;">
             <button onclick="printCustomerInvoice(${order.id})" style="background:#102a43; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📄 Invoice</button>
-            <button onclick="sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">📲 WhatsApp</button>
+            <button onclick="sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📲 WhatsApp</button>
             
             ${isPending ? `
               <button onclick="cancelCustomerOrder(${order.id})" style="background:#dc2626; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">❌ Cancel</button>
@@ -826,7 +820,7 @@ async function printCustomerInvoice(orderId) {
   } catch (err) {}
 }
 
-// 8. WhatsApp Notification
+// 8. Bulletproof Free WhatsApp Notification
 window.sendWhatsAppInvoice = async function(orderId) {
   try {
     const res = await fetch('/api/orders');
@@ -834,43 +828,48 @@ window.sendWhatsAppInvoice = async function(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return alert("Order details not found!");
 
-    const rawPhone = (order.shipping_phone || order.phone || '').replace(/\D/g, '');
-    const phone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-
-    if (!phone || phone.length < 10) {
-      return alert("Valid mobile number not available for this order!");
+    let rawPhone = (order.shipping_phone || order.phone || '').replace(/\D/g, '');
+    if (rawPhone.length === 10) {
+      rawPhone = '91' + rawPhone;
     }
 
-    let itemsText = "";
+    if (!rawPhone || rawPhone.length < 10) {
+      rawPhone = '918544241851';
+    }
+
+    let itemsList = "• Wholesale Groceries / Agro Products";
     try {
       const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
       const grouped = {};
       items.forEach(i => {
         grouped[i.name] = (grouped[i.name] || 0) + 1;
       });
-      itemsText = Object.entries(grouped).map(([name, qty]) => `• ${name} x ${qty} case(s)`).join('%0A');
-    } catch (e) {
-      itemsText = "• Wholesale Groceries / Agro Products";
-    }
+      itemsList = Object.entries(grouped).map(([name, qty]) => `• ${name} x ${qty} case(s)`).join('\n');
+    } catch (e) {}
 
-    const message = `*📦 SHAILPUTRI AGRO FOODS PVT LTD*%0A` +
-      `*Tax Invoice / Order Confirmation*%0A` +
-      `--------------------------------%0A` +
-      `*Order ID:* ORD-${order.id}%0A` +
-      `*Customer:* ${order.business_name || 'Dealer'}%0A` +
-      `*Status:* ${order.status}%0A` +
-      `*Payment Mode:* ${order.payment_mode}%0A` +
-      `*Total Amount:* ₹${Number(order.total).toLocaleString('en-IN')}%0A` +
-      `--------------------------------%0A` +
-      `*Ordered Items:*%0A${itemsText}%0A` +
-      `--------------------------------%0A` +
-      `Thank you for doing wholesale business with us!%0A` +
-      `Helpdesk: +91 8544241851`;
+    const textMessage = 
+`*📦 SHAILPUTRI AGRO FOODS PVT LTD*
+*Tax Invoice / Order Confirmation*
+--------------------------------
+*Order ID:* ORD-${order.id}
+*Customer:* ${order.business_name || 'Dealer'}
+*Status:* ${order.status}
+*Payment Mode:* ${order.payment_mode}
+*Total Amount:* ₹${Number(order.total).toLocaleString('en-IN')}
+--------------------------------
+*Ordered Items:*
+${itemsList}
+--------------------------------
+Thank you for doing wholesale business with us!
+Helpdesk: +91 8544241851`;
 
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${message}`;
+    const encodedMsg = encodeURIComponent(textMessage);
+    const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodedMsg}`;
+
     window.open(whatsappUrl, '_blank');
   } catch (err) {
-    alert("Could not trigger WhatsApp notification.");
+    console.error('WhatsApp Error:', err);
+    alert("Could not open WhatsApp invoice.");
   }
 };
 
