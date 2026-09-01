@@ -52,7 +52,7 @@ addCol('orders', 'shipping_state', "TEXT DEFAULT 'Bihar'");
 addCol('company_settings', 'bulk_qty_threshold', 'INTEGER DEFAULT 10');
 addCol('company_settings', 'bulk_discount_percent', 'INTEGER DEFAULT 3');
 addCol('company_settings', 'signatory_url', "TEXT DEFAULT 'images/SAFPL.jpg'");
-addCol('company_settings', 'logo_url', "TEXT DEFAULT 'images/SAFPL.jpg'");
+addCol('company_settings', 'logo_url', "TEXT DEFAULT 'images/logo.png'");
 addCol('company_settings', 'bank_name', "TEXT DEFAULT 'State Bank of India'");
 addCol('company_settings', 'bank_account_no', "TEXT DEFAULT '423589123456'");
 addCol('company_settings', 'bank_ifsc', "TEXT DEFAULT 'SBIN0001234'");
@@ -350,12 +350,38 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-app.post('/api/products/add', uploadImage.single('productImage'), (req, res) => {
-  const { name, sku, pack, price, stock, category, hsn, gst_rate } = req.body;
-  let imagePath = req.file ? 'images/' + req.file.filename : 'images/placeholder.png';
-  db.prepare('INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(name, sku, pack || "Standard", parseInt(price), parseInt(stock) || 0, category || "General", imagePath, hsn || "1006", parseInt(gst_rate) || 5);
-  res.json({ success: true, message: "Product added!" });
+// Add Product - Supports both 'image' and 'productImage' field names
+app.post('/api/products/add', uploadImage.fields([{ name: 'image', maxCount: 1 }, { name: 'productImage', maxCount: 1 }]), (req, res) => {
+  try {
+    const { name, sku, pack, price, stock, category, hsn, gst_rate } = req.body;
+    
+    let imagePath = 'images/placeholder.png';
+    if (req.files && req.files['image'] && req.files['image'][0]) {
+      imagePath = 'images/' + req.files['image'][0].filename;
+    } else if (req.files && req.files['productImage'] && req.files['productImage'][0]) {
+      imagePath = 'images/' + req.files['productImage'][0].filename;
+    }
+
+    db.prepare(`
+      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      name, 
+      sku, 
+      pack || "Standard", 
+      parseInt(price) || 0, 
+      parseInt(stock) || 0, 
+      category || "General", 
+      imagePath, 
+      hsn || "1006", 
+      parseInt(gst_rate) || 5
+    );
+
+    res.json({ success: true, message: "Product added successfully with image!" });
+  } catch (err) {
+    console.error("Add Product Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 app.post('/api/products/update', (req, res) => {
