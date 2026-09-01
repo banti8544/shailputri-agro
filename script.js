@@ -844,13 +844,13 @@ async function printCustomerInvoice(orderId) {
         </div>
 
         <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-          <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-          <div style="text-align: center;">
-            <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 60px; max-width: 140px; object-fit: contain; margin-bottom: 4px;" onerror="this.style.display='none'"><br>
-            <strong style="font-size: 12px; color: #102a43;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong><br>
-            <span style="font-size: 11px; color: #64748b;">Authorized Signatory</span>
-          </div>
-        </div>
+  <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
+  <div style="text-align: center;">
+    <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
+    <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
+    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
+  </div>
+</div>
 
         <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
           <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
