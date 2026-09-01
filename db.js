@@ -44,7 +44,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
-    sku TEXT UNIQUE,
+    sku TEXT,
     pack TEXT DEFAULT 'Standard',
     price INTEGER,
     stock INTEGER DEFAULT 50,
@@ -80,7 +80,7 @@ db.prepare(`
   )
 `).run();
 
-// 2. Default Permanent Company Profile
+// 2. Default Company Profile
 const existingConfig = db.prepare('SELECT id FROM company_settings WHERE id = 1').get();
 if (!existingConfig) {
   db.prepare(`
@@ -89,15 +89,17 @@ if (!existingConfig) {
   `).run();
 }
 
-// 3. Remove Existing Duplicates from Database
-db.prepare(`
-  DELETE FROM products 
-  WHERE id NOT IN (
-    SELECT MAX(id) FROM products GROUP BY sku
-  )
-`).run();
+// 3. Remove Existing Duplicates
+try {
+  db.prepare(`
+    DELETE FROM products 
+    WHERE id NOT IN (
+      SELECT MAX(id) FROM products GROUP BY sku
+    )
+  `).run();
+} catch (e) {}
 
-// 4. Default Products List (Clean Upsert)
+// 4. Default Products Seed (Bulletproof Insert/Update)
 const defaultProducts = [
   { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/placeholder.png' },
   { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/placeholder.png' },
@@ -109,21 +111,24 @@ const defaultProducts = [
   { name: 'Phool Makhana Grade-A 250g (फूल मखाना)', sku: 'SKU-9901', hsn: '1904', gst_rate: 5, price: 2400, stock: 120, category: 'Dry Fruits & Makhana', image_url: 'images/makhana.jpg' }
 ];
 
-const insertProd = db.prepare(`
-  INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
+const checkStmt = db.prepare('SELECT id FROM products WHERE sku = ?');
+const updateStmt = db.prepare(`
+  UPDATE products 
+  SET name = ?, pack = 'Standard', price = ?, stock = ?, category = ?, image_url = ?, hsn = ?, gst_rate = ? 
+  WHERE sku = ?
+`);
+const insertStmt = db.prepare(`
+  INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) 
   VALUES (?, ?, 'Standard', ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(sku) DO UPDATE SET
-    name=excluded.name,
-    price=excluded.price,
-    stock=excluded.stock,
-    category=excluded.category,
-    image_url=excluded.image_url,
-    hsn=excluded.hsn,
-    gst_rate=excluded.gst_rate
 `);
 
 defaultProducts.forEach(p => {
-  insertProd.run(p.name, p.sku, p.price, p.stock, p.category, p.image_url, p.hsn, p.gst_rate);
+  const existing = checkStmt.get(p.sku);
+  if (existing) {
+    updateStmt.run(p.name, p.price, p.stock, p.category, p.image_url, p.hsn, p.gst_rate, p.sku);
+  } else {
+    insertStmt.run(p.name, p.sku, p.price, p.stock, p.category, p.image_url, p.hsn, p.gst_rate);
+  }
 });
 
 module.exports = db;
