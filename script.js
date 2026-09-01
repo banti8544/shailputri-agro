@@ -8,6 +8,9 @@ let activeModalProduct = null;
 let companyBulkConfig = { threshold: 10, discount: 1 };
 const UPI_ID = "8544241851.ibz@icici";
 
+let paymentTimerInterval = null;
+let remainingSeconds = 15;
+
 document.addEventListener("DOMContentLoaded", async () => {
   renderAuthHeader();
   await loadCompanyBulkConfig();
@@ -371,7 +374,7 @@ function updateCartUI() {
   }
 }
 
-// 4. Place Wholesale Order & Payment Gateway Trigger
+// 4. Place Wholesale Order & Free Smart Timer Checkout
 function placeOrder() {
   if (!loggedInUser) {
     alert("Please login to place wholesale orders!");
@@ -396,33 +399,52 @@ function placeOrder() {
     if (gatewayModal) {
       document.getElementById("gateway-total-display").textContent = `₹${total.toLocaleString('en-IN')}`;
       const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
-      document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiLink)}`;
-      switchPaymentTab('upi');
+      document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(upiLink)}`;
+      
+      const utrInput = document.getElementById("upi-utr-input");
+      if (utrInput) utrInput.value = "";
+
       gatewayModal.style.display = "flex";
+      startAutoConfirmTimer();
     }
   } else {
     executeFinalOrder(paymentMode);
   }
 }
 
+function startAutoConfirmTimer() {
+  clearInterval(paymentTimerInterval);
+  remainingSeconds = 15;
+  const timerDisplay = document.getElementById("qr-timer");
+  const progressBar = document.getElementById("qr-progress-bar");
+
+  if (timerDisplay) timerDisplay.textContent = `${remainingSeconds}s`;
+  if (progressBar) progressBar.style.width = "100%";
+
+  paymentTimerInterval = setInterval(() => {
+    remainingSeconds--;
+    if (timerDisplay) timerDisplay.textContent = `${remainingSeconds}s`;
+    if (progressBar) progressBar.style.width = `${(remainingSeconds / 15) * 100}%`;
+
+    if (remainingSeconds <= 0) {
+      clearInterval(paymentTimerInterval);
+      confirmAutoPayment();
+    }
+  }, 1000);
+}
+
 function closePaymentGateway() {
+  clearInterval(paymentTimerInterval);
   const modal = document.getElementById("payment-gateway-modal");
   if (modal) modal.style.display = "none";
 }
 
-function switchPaymentTab(tab) {
-  const tabUpi = document.getElementById("pg-tab-upi");
-  const tabCards = document.getElementById("pg-tab-cards");
-  const tabNet = document.getElementById("pg-tab-netbanking");
-
-  if (tabUpi) tabUpi.style.display = (tab === 'upi') ? 'block' : 'none';
-  if (tabCards) tabCards.style.display = (tab === 'cards') ? 'block' : 'none';
-  if (tabNet) tabNet.style.display = (tab === 'netbanking') ? 'block' : 'none';
-}
-
-function simulatePaymentSuccess(method) {
+function confirmAutoPayment() {
+  clearInterval(paymentTimerInterval);
+  const utr = document.getElementById("upi-utr-input")?.value.trim();
   closePaymentGateway();
-  executeFinalOrder(`Online (${method})`);
+  const modeText = utr ? `Online UPI (UTR: ${utr})` : `Online UPI (Auto-Detected)`;
+  executeFinalOrder(modeText);
 }
 
 async function executeFinalOrder(finalPaymentMode) {
@@ -480,13 +502,19 @@ async function executeFinalOrder(finalPaymentMode) {
       actionsDiv.innerHTML = `
         <div style="background:#e6f4ea; padding:1.5rem; border-radius:8px; text-align:center; border:1px solid #c6ebd0;">
           <h3 style="color:#137333; margin:0 0 0.5rem 0;">🎉 Order #ORD-${data.orderId} Confirmed (${finalPaymentMode})!</h3>
-          <p style="margin:0 0 1rem 0; color:#475569;">Payment Recorded Successfully! Total Amount: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
+          <p style="margin:0 0 1rem 0; color:#475569;">भुगतान दर्ज हो चुका है! कुल राशि: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
           <div style="display:flex; justify-content:center; gap:10px;">
             <button onclick="showSection('ledger')" style="background:#102a43; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📄 View in Ledger</button>
-            <button onclick="showSection('catalog')" style="background:#70b028; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">🛍️ Continue Shopping</button>
+            <button onclick="sendWhatsAppInvoice(${data.orderId})" style="background:#25D366; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📲 WhatsApp Receipt</button>
           </div>
         </div>
       `;
+
+      // Auto-Popup Free WhatsApp Invoice
+      setTimeout(() => {
+        sendWhatsAppInvoice(data.orderId);
+      }, 1000);
+
     } else {
       alert(data.message || "Order failed.");
     }
@@ -554,7 +582,7 @@ async function loadLedgerOrders() {
 
           <div style="display:flex; gap:6px;">
             <button onclick="printCustomerInvoice(${order.id})" style="background:#102a43; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📄 Invoice</button>
-            <button onclick="sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📲 WhatsApp</button>
+            <button onclick="sendWhatsAppInvoice(${order.id})" style="background:#25D366; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold;">📲 WhatsApp</button>
             
             ${isPending ? `
               <button onclick="cancelCustomerOrder(${order.id})" style="background:#dc2626; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; font-weight:bold;">❌ Cancel</button>
