@@ -98,7 +98,7 @@ const defaultProducts = [
   { name: 'MUSTERD CAKE (सरसों खली)', sku: 'SKU-6678', hsn: '2306', gst_rate: 5, price: 1500, stock: 100, category: 'PASU AHAR', image_url: 'images/placeholder.png' },
   { name: 'Soyabin Refined Sunflower Oil 1L', sku: 'SKU-2202', hsn: '1507', gst_rate: 5, price: 1500, stock: 50, category: 'Edible Oils', image_url: 'images/placeholder.png' },
   { name: 'DALOMOT (दालमोट)', sku: 'SKU-3209', hsn: '2106', gst_rate: 12, price: 750, stock: 50, category: 'Bhujia & Mixtures', image_url: 'images/placeholder.png' },
-  { name: 'Phool Makhana Grade-A 250g (फूल मखाना)', sku: 'SKU-9901', hsn: '1904', gst_rate: 5, price: 2400, stock: 120, category: 'Dry Fruits & Makhana', image_url: 'images/placeholder.png' }
+  { name: 'Phool Makhana Grade-A 250g (फूल मखाना)', sku: 'SKU-9901', hsn: '1904', gst_rate: 5, price: 2400, stock: 120, category: 'Dry Fruits & Makhana', image_url: 'images/makhana.jpg' }
 ];
 
 const insertProd = db.prepare(`
