@@ -551,30 +551,52 @@
     }
 
     async function addNewProduct(e) {
-      e.preventDefault();
-      const formData = new FormData();
-      formData.append('name', document.getElementById('prod-name').value);
-      formData.append('category', document.getElementById('prod-category-select').value);
-      formData.append('sku', document.getElementById('prod-sku').value);
-      formData.append('hsn', document.getElementById('prod-hsn').value);
-      formData.append('gst_rate', document.getElementById('prod-gst-rate').value);
-      formData.append('price', document.getElementById('prod-price').value);
-      formData.append('stock', document.getElementById('prod-stock').value);
-      const fileInput = document.getElementById('prod-img-file');
-      if (fileInput.files.length > 0) formData.append('productImage', fileInput.files[0]);
+  e.preventDefault();
+  
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "⏳ Uploading & Saving...";
+  }
 
-      await fetch('/api/products/add', { method: 'POST', body: formData });
-      alert('Product Added Successfully!');
+  const formData = new FormData();
+  formData.append('name', document.getElementById('prod-name').value.trim());
+  formData.append('category', document.getElementById('prod-category-select').value);
+  formData.append('sku', document.getElementById('prod-sku').value.trim());
+  formData.append('hsn', document.getElementById('prod-hsn').value.trim());
+  formData.append('gst_rate', document.getElementById('prod-gst-rate').value);
+  formData.append('price', document.getElementById('prod-price').value);
+  formData.append('stock', document.getElementById('prod-stock').value || 50);
+
+  // Computer Drive File Input
+  const fileInput = document.getElementById('prod-img-file');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    formData.append('image', fileInput.files[0]); // field name 'image'
+  }
+
+  try {
+    const res = await fetch('/api/products/add', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      alert('✅ Product & Image uploaded successfully!');
       document.getElementById('add-product-form').reset();
       loadAdminProducts();
+    } else {
+      alert('❌ Error: ' + (result.message || 'Failed to add product'));
     }
-
-    async function deleteProduct(id) {
-      if (!confirm('Delete product?')) return;
-      await fetch(`/api/products/${id}`, { method: 'DELETE' });
-      loadAdminProducts();
+  } catch (err) {
+    alert('Server error while saving product.');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "+ Save Item";
     }
-
+  }
+}
     // 4. Orders Management
     async function fetchOrders() {
       const res = await fetch('/api/orders');
