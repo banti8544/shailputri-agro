@@ -23,8 +23,10 @@
     .top-bar a { color: #64748b; text-decoration: none; margin-left: 15px; }
 
     /* Header */
-    header { background: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 100; }
-    .logo-box h1 { margin: 0; color: var(--navy); font-size: 1.6rem; display: flex; align-items: center; gap: 8px; }
+    header { background: #fff; padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; z-index: 100; }
+    .logo-box { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .logo-box img { height: 42px; object-fit: contain; }
+    .logo-box h1 { margin: 0; color: var(--navy); font-size: 1.5rem; display: flex; align-items: center; gap: 6px; }
     .logo-box h1 span { color: var(--primary); }
     .search-bar-wrap { display: flex; width: 45%; max-width: 550px; }
     .search-bar-wrap input { width: 100%; padding: 0.7rem 1rem; border: 2px solid var(--primary); border-radius: 4px 0 0 4px; outline: none; font-size: 0.95rem; }
@@ -108,8 +110,9 @@
   </div>
 
   <header>
-    <div class="logo-box">
-      <h1 onclick="showSection('catalog')" style="cursor:pointer;"><span>🌱 Shailputri</span> Grocery</h1>
+    <div class="logo-box" onclick="showSection('catalog')">
+      <img src="images/logo.png" onerror="this.src='images/placeholder.png'" alt="Logo">
+      <h1><span>🌱 Shailputri</span> Grocery</h1>
     </div>
 
     <div class="search-bar-wrap">
@@ -381,93 +384,94 @@
     </div>
   </div>
 
-<!-- Multi-Option Payment Gateway Modal -->
-<div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 10000; justify-content: center; align-items: center;">
-  <div style="background: white; width: 92%; max-width: 480px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #102a43; padding-bottom: 8px;">
-      <h3 style="margin: 0; color: #102a43; font-size: 1.15rem;">💳 Shailputri Secure Payment Gateway</h3>
-      <button onclick="closePaymentGateway()" style="background: #cbd5e1; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
-    </div>
-
-    <div style="text-align: center; margin: 10px 0;">
-      <div style="font-size: 0.85rem; color: #64748b;">कुल देय राशि (Payable Amount):</div>
-      <div id="gateway-total-display" style="font-size: 1.6rem; font-weight: bold; color: #15803d;">₹0</div>
-    </div>
-
-    <!-- Payment Tabs -->
-    <div style="display: flex; gap: 6px; margin-bottom: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
-      <button id="tab-btn-upi" onclick="switchPaymentTab('upi')" style="flex: 1; padding: 8px 4px; background: #102a43; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">📱 UPI QR</button>
-      <button id="tab-btn-cards" onclick="switchPaymentTab('cards')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">💳 Cards</button>
-      <button id="tab-btn-netbanking" onclick="switchPaymentTab('netbanking')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">🏦 Net Banking</button>
-    </div>
-
-    <!-- 1. UPI QR View -->
-    <div id="pg-tab-upi" style="text-align: center;">
-      <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; display: inline-block;">
-        <img id="gateway-upi-qr" src="" alt="Dynamic QR" style="width: 165px; height: 165px; display: block; margin: 0 auto;">
-        <small style="color: #64748b; font-size: 0.75rem; display: block; margin-top: 4px;">GPay | PhonePe | Paytm | BHIM</small>
+  <!-- Multi-Option Payment Gateway Modal -->
+  <div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="background: white; width: 92%; max-width: 480px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #102a43; padding-bottom: 8px;">
+        <h3 style="margin: 0; color: #102a43; font-size: 1.15rem;">💳 Shailputri Secure Payment Gateway</h3>
+        <button onclick="closePaymentGateway()" style="background: #cbd5e1; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
       </div>
 
-      <div style="text-align: left; margin-top: 10px;">
-        <label style="font-size: 0.8rem; font-weight: bold; color: #334155;">12-Digit UPI Ref / UTR No. (भुगतान के बाद दर्ज करें):</label>
-        <input type="text" id="upi-utr-input" placeholder="उदा. 4235XXXXXXXX" maxlength="12" style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; margin-top: 3px;">
+      <div style="text-align: center; margin: 10px 0;">
+        <div style="font-size: 0.85rem; color: #64748b;">कुल देय राशि (Payable Amount):</div>
+        <div id="gateway-total-display" style="font-size: 1.6rem; font-weight: bold; color: #15803d;">₹0</div>
       </div>
 
-      <button onclick="confirmUpiPayment()" style="margin-top: 12px; width: 100%; background: #15803d; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
-        ✅ भुगतान सत्यापित करें व ऑर्डर प्लेस करें
-      </button>
-    </div>
+      <!-- Payment Tabs -->
+      <div style="display: flex; gap: 6px; margin-bottom: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
+        <button id="tab-btn-upi" onclick="switchPaymentTab('upi')" style="flex: 1; padding: 8px 4px; background: #102a43; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">📱 UPI QR</button>
+        <button id="tab-btn-cards" onclick="switchPaymentTab('cards')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">💳 Cards</button>
+        <button id="tab-btn-netbanking" onclick="switchPaymentTab('netbanking')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">🏦 Net Banking</button>
+      </div>
 
-    <!-- 2. Debit / Credit Card View -->
-    <div id="pg-tab-cards" style="display: none;">
-      <form onsubmit="handleCardPayment(event)" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
-        <div>
-          <label style="font-weight: bold;">कार्ड नंबर (Card Number) *</label>
-          <input type="text" id="card-num" placeholder="4532 •••• •••• 8921" maxlength="19" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
+      <!-- 1. UPI QR View -->
+      <div id="pg-tab-upi" style="text-align: center;">
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; display: inline-block;">
+          <img id="gateway-upi-qr" src="" alt="Dynamic QR" style="width: 165px; height: 165px; display: block; margin: 0 auto;">
+          <small style="color: #64748b; font-size: 0.75rem; display: block; margin-top: 4px;">GPay | PhonePe | Paytm | BHIM</small>
         </div>
-        <div>
-          <label style="font-weight: bold;">कार्डधारक का नाम (Cardholder Name) *</label>
-          <input type="text" id="card-name" placeholder="उदा. MANTU KUMAR" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <div style="flex: 1;">
-            <label style="font-weight: bold;">Expiry (MM/YY) *</label>
-            <input type="text" id="card-exp" placeholder="08/28" maxlength="5" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
-          </div>
-          <div style="width: 90px;">
-            <label style="font-weight: bold;">CVV *</label>
-            <input type="password" id="card-cvv" placeholder="•••" maxlength="3" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
-          </div>
-        </div>
-        <button type="submit" style="margin-top: 10px; width: 100%; background: #102a43; color: white; border: none; padding: 11px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
-          💳 Pay Securely & Place Order
-        </button>
-      </form>
-    </div>
 
-    <!-- 3. Net Banking View -->
-    <div id="pg-tab-netbanking" style="display: none;">
-      <div style="font-size: 0.85rem;">
-        <label style="font-weight: bold;">अपना बैंक चुनें (Select Bank):</label>
-        <select id="netbank-select" style="width: 100%; padding: 9px; margin: 6px 0 15px 0; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem;">
-          <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
-          <option value="HDFC Bank">HDFC Bank</option>
-          <option value="ICICI Bank">ICICI Bank</option>
-          <option value="Axis Bank">Axis Bank</option>
-          <option value="Punjab National Bank (PNB)">Punjab National Bank (PNB)</option>
-          <option value="Bank of Baroda">Bank of Baroda</option>
-          <option value="Canara Bank">Canara Bank</option>
-          <option value="Union Bank of India">Union Bank of India</option>
-        </select>
-        <button onclick="handleNetBankingPayment()" style="width: 100%; background: #102a43; color: white; border: none; padding: 11px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
-          🏦 Net Banking से भुगतान व ऑर्डर कन्फर्म करें
+        <div style="text-align: left; margin-top: 10px;">
+          <label style="font-size: 0.8rem; font-weight: bold; color: #334155;">12-Digit UPI Ref / UTR No. (भुगतान के बाद दर्ज करें):</label>
+          <input type="text" id="upi-utr-input" placeholder="उदा. 4235XXXXXXXX" maxlength="12" style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; margin-top: 3px;">
+        </div>
+
+        <button onclick="confirmUpiPayment()" style="margin-top: 12px; width: 100%; background: #15803d; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+          ✅ भुगतान सत्यापित करें व ऑर्डर प्लेस करें
         </button>
       </div>
-    </div>
 
+      <!-- 2. Debit / Credit Card View -->
+      <div id="pg-tab-cards" style="display: none;">
+        <form onsubmit="handleCardPayment(event)" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
+          <div>
+            <label style="font-weight: bold;">कार्ड नंबर (Card Number) *</label>
+            <input type="text" id="card-num" placeholder="4532 •••• •••• 8921" maxlength="19" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
+          </div>
+          <div>
+            <label style="font-weight: bold;">कार्डधारक का नाम (Cardholder Name) *</label>
+            <input type="text" id="card-name" placeholder="उदा. CARDHOLDER NAME" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="font-weight: bold;">Expiry (MM/YY) *</label>
+              <input type="text" id="card-exp" placeholder="08/28" maxlength="5" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
+            </div>
+            <div style="width: 90px;">
+              <label style="font-weight: bold;">CVV *</label>
+              <input type="password" id="card-cvv" placeholder="•••" maxlength="3" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; margin-top: 2px;">
+            </div>
+          </div>
+          <button type="submit" style="margin-top: 10px; width: 100%; background: #102a43; color: white; border: none; padding: 11px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+            💳 Pay Securely & Place Order
+          </button>
+        </form>
+      </div>
+
+      <!-- 3. Net Banking View -->
+      <div id="pg-tab-netbanking" style="display: none;">
+        <div style="font-size: 0.85rem;">
+          <label style="font-weight: bold;">अपना बैंक चुनें (Select Bank):</label>
+          <select id="netbank-select" style="width: 100%; padding: 9px; margin: 6px 0 15px 0; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem;">
+            <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
+            <option value="HDFC Bank">HDFC Bank</option>
+            <option value="ICICI Bank">ICICI Bank</option>
+            <option value="Axis Bank">Axis Bank</option>
+            <option value="Punjab National Bank (PNB)">Punjab National Bank (PNB)</option>
+            <option value="Bank of Baroda">Bank of Baroda</option>
+            <option value="Canara Bank">Canara Bank</option>
+            <option value="Union Bank of India">Union Bank of India</option>
+          </select>
+          <button onclick="handleNetBankingPayment()" style="width: 100%; background: #102a43; color: white; border: none; padding: 11px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+            🏦 Net Banking से भुगतान व ऑर्डर कन्फर्म करें
+          </button>
+        </div>
+      </div>
+
+    </div>
   </div>
-</div>
+
   <script src="script.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
