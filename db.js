@@ -20,9 +20,19 @@ db.prepare(`
     logo_url TEXT,
     signatory_url TEXT,
     bulk_qty_threshold INTEGER DEFAULT 10,
-    bulk_discount_percent INTEGER DEFAULT 3
+    bulk_discount_percent INTEGER DEFAULT 3,
+    bank_name TEXT DEFAULT 'State Bank of India',
+    bank_account_no TEXT DEFAULT '423589123456',
+    bank_ifsc TEXT DEFAULT 'SBIN0001234',
+    bank_branch TEXT DEFAULT 'Purnia Main Branch'
   )
 `).run();
+
+// Migration if columns missing
+try { db.prepare("ALTER TABLE company_settings ADD COLUMN bank_name TEXT DEFAULT 'State Bank of India'").run(); } catch(e){}
+try { db.prepare("ALTER TABLE company_settings ADD COLUMN bank_account_no TEXT DEFAULT '423589123456'").run(); } catch(e){}
+try { db.prepare("ALTER TABLE company_settings ADD COLUMN bank_ifsc TEXT DEFAULT 'SBIN0001234'").run(); } catch(e){}
+try { db.prepare("ALTER TABLE company_settings ADD COLUMN bank_branch TEXT DEFAULT 'Purnia Main Branch'").run(); } catch(e){}
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS retailers (
@@ -80,22 +90,22 @@ db.prepare(`
   )
 `).run();
 
-// 2. Default Permanent Company Profile
+// 2. Default Company Profile with Logo, Signature & Bank Info
 const existingConfig = db.prepare('SELECT id FROM company_settings WHERE id = 1').get();
 if (!existingConfig) {
   db.prepare(`
-    INSERT INTO company_settings (id, company_name, address, state, gstin, fssai, udyam, cin, phone, email, logo_url, signatory_url, bulk_qty_threshold, bulk_discount_percent)
-    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/logo.png', 'images/logo.png', 10, 3)
+    INSERT INTO company_settings (id, company_name, address, state, gstin, fssai, udyam, cin, phone, email, logo_url, signatory_url, bulk_qty_threshold, bulk_discount_percent, bank_name, bank_account_no, bank_ifsc, bank_branch)
+    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/SAFPL.jpg', 'images/SAFPL.jpg', 10, 3, 'State Bank of India', '423589123456', 'SBIN0001234', 'Purnia Main Branch')
   `).run();
 } else {
-  // Update logo if already exists
   db.prepare(`
     UPDATE company_settings 
-    SET logo_url = 'images/logo.png', signatory_url = 'images/SAFPL.jpg' 
+    SET logo_url = 'images/SAFPL.jpg', signatory_url = 'images/SAFPL.jpg' 
     WHERE id = 1
   `).run();
 }
-// 3. Remove Existing Duplicates
+
+// 3. Clean Duplicate Products
 try {
   db.prepare(`
     DELETE FROM products 
@@ -105,7 +115,7 @@ try {
   `).run();
 } catch (e) {}
 
-// 4. Default Products Seed with Real Images
+// 4. Default Products Seed
 const defaultProducts = [
   { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/oil.jpg' },
   { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/aata.jpg' },
@@ -116,6 +126,7 @@ const defaultProducts = [
   { name: 'DALOMOT (दालमोट)', sku: 'SKU-3209', hsn: '2106', gst_rate: 12, price: 750, stock: 50, category: 'Bhujia & Mixtures', image_url: 'images/chanachur.jpg' },
   { name: 'Phool Makhana Grade-A 250g (फूल मखाना)', sku: 'SKU-9901', hsn: '1904', gst_rate: 5, price: 2400, stock: 120, category: 'Dry Fruits & Makhana', image_url: 'images/makhana.jpg' }
 ];
+
 const checkStmt = db.prepare('SELECT id FROM products WHERE sku = ?');
 const updateStmt = db.prepare(`
   UPDATE products 
