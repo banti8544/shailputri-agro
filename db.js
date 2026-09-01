@@ -89,7 +89,15 @@ if (!existingConfig) {
   `).run();
 }
 
-// 3. Default Permanent Products (Including Makhana, Spices, Oils, etc.)
+// 3. Remove Existing Duplicates from Database
+db.prepare(`
+  DELETE FROM products 
+  WHERE id NOT IN (
+    SELECT MAX(id) FROM products GROUP BY sku
+  )
+`).run();
+
+// 4. Default Products with Automatic Upsert (No Duplicates)
 const defaultProducts = [
   { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/placeholder.png' },
   { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/placeholder.png' },
@@ -102,8 +110,16 @@ const defaultProducts = [
 ];
 
 const insertProd = db.prepare(`
-  INSERT OR IGNORE INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
+  INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
   VALUES (?, ?, 'Standard', ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(sku) DO UPDATE SET
+    name=excluded.name,
+    price=excluded.price,
+    stock=excluded.stock,
+    category=excluded.category,
+    image_url=excluded.image_url,
+    hsn=excluded.hsn,
+    gst_rate=excluded.gst_rate
 `);
 
 defaultProducts.forEach(p => {
