@@ -23,7 +23,6 @@
     .stamp-blue { background-color: #e0f2fe; color: #0369a1; }
     .stamp-red { background-color: #fce8e6; color: #c5221f; }
     .cat-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; border: 1px solid #bae6fd; }
-    .cat-badge span { cursor: pointer; color: #c5221f; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -63,7 +62,7 @@
 
       <!-- 1. Company Profile & Settings -->
       <div class="card-box">
-        <h2>1. Shailputri Agro Foods - Tax, Logos & Bulk Tier Rules</h2>
+        <h2>1. Shailputri Agro Foods - Tax, Logos, Bank & Bulk Rules</h2>
         <form onsubmit="saveCompanySettings(event)" enctype="multipart/form-data" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: end;">
           <div>
             <label style="font-weight: bold; font-size: 0.85rem;">Company Name</label>
@@ -103,6 +102,24 @@
             <input type="number" id="cfg-bulk-disc" min="0" max="50" value="3" style="width: 100%; box-sizing: border-box;">
           </div>
 
+          <!-- Bank Details Fields -->
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Bank Name</label>
+            <input type="text" id="cfg-bank-name" placeholder="e.g. State Bank of India" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Bank Account No.</label>
+            <input type="text" id="cfg-bank-acc" placeholder="e.g. 423589123456" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">IFSC Code</label>
+            <input type="text" id="cfg-bank-ifsc" placeholder="e.g. SBIN0001234" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-weight: bold; font-size: 0.85rem;">Branch Name</label>
+            <input type="text" id="cfg-bank-branch" placeholder="e.g. Purnia Main Branch" style="width: 100%; box-sizing: border-box;">
+          </div>
+
           <div>
             <label style="font-weight: bold; font-size: 0.85rem;">Upload Company Logo</label>
             <input type="file" id="cfg-logo-file" accept="image/*" style="width: 100%;">
@@ -113,7 +130,7 @@
           </div>
 
           <div style="grid-column: span 2;">
-            <button type="submit" class="btn btn-green" style="width: 100%; padding: 0.7rem;">💾 Save Tax Profile, Bulk Margins & Logos</button>
+            <button type="submit" class="btn btn-green" style="width: 100%; padding: 0.7rem;">💾 Save Tax Profile, Bank Details & Logos</button>
           </div>
         </form>
         <div id="company-status" style="margin-top: 0.5rem; font-weight: bold; color: #137333;"></div>
@@ -180,7 +197,7 @@
         </form>
       </div>
 
-      <!-- 4. Manage Products with Search & Image Upload -->
+      <!-- 4. Manage Products -->
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <h2>3. Manage Products</h2>
@@ -206,7 +223,7 @@
         </table>
       </div>
 
-      <!-- 5. Incoming Orders with Search -->
+      <!-- 5. Incoming Orders -->
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <h2>4. Incoming Orders Management</h2>
@@ -231,7 +248,7 @@
         </table>
       </div>
 
-      <!-- 6. Dealer Schemes & GST Details with Search -->
+      <!-- 6. Dealer Schemes & GST Details -->
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <h2>5. Dealer Scheme, Credit Limit & State Tax Setting</h2>
@@ -333,14 +350,20 @@
       companyConfig = await res.json();
       if (companyConfig.company_name) {
         document.getElementById("cfg-name").value = companyConfig.company_name;
-        document.getElementById("cfg-gstin").value = companyConfig.gstin;
-        document.getElementById("cfg-fssai").value = companyConfig.fssai;
-        document.getElementById("cfg-udyam").value = companyConfig.udyam;
-        document.getElementById("cfg-cin").value = companyConfig.cin;
-        document.getElementById("cfg-state").value = companyConfig.state;
-        document.getElementById("cfg-address").value = companyConfig.address;
+        document.getElementById("cfg-gstin").value = companyConfig.gstin || '';
+        document.getElementById("cfg-fssai").value = companyConfig.fssai || '';
+        document.getElementById("cfg-udyam").value = companyConfig.udyam || '';
+        document.getElementById("cfg-cin").value = companyConfig.cin || '';
+        document.getElementById("cfg-state").value = companyConfig.state || 'Assam';
+        document.getElementById("cfg-address").value = companyConfig.address || '';
         document.getElementById("cfg-bulk-qty").value = companyConfig.bulk_qty_threshold || 10;
         document.getElementById("cfg-bulk-disc").value = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 3;
+        
+        // Bank Details
+        document.getElementById("cfg-bank-name").value = companyConfig.bank_name || '';
+        document.getElementById("cfg-bank-acc").value = companyConfig.bank_account_no || '';
+        document.getElementById("cfg-bank-ifsc").value = companyConfig.bank_ifsc || '';
+        document.getElementById("cfg-bank-branch").value = companyConfig.bank_branch || '';
       }
     }
 
@@ -359,6 +382,12 @@
       formData.append('phone', '8544241851');
       formData.append('email', 'info@shailputriagro.com');
 
+      // Bank Details
+      formData.append('bank_name', document.getElementById("cfg-bank-name").value);
+      formData.append('bank_account_no', document.getElementById("cfg-bank-acc").value);
+      formData.append('bank_ifsc', document.getElementById("cfg-bank-ifsc").value);
+      formData.append('bank_branch', document.getElementById("cfg-bank-branch").value);
+
       const logoFile = document.getElementById("cfg-logo-file");
       if (logoFile.files.length > 0) formData.append('companyLogo', logoFile.files[0]);
 
@@ -370,7 +399,7 @@
         body: formData
       });
       const data = await res.json();
-      alert(data.message);
+      alert(data.message || 'Settings Saved!');
       loadCompanySettings();
     }
 
@@ -379,17 +408,13 @@
       const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
       if (!categories.includes('General')) categories.unshift('General');
 
-      // Update Badges List
       const badgeBox = document.getElementById('admin-category-badges');
       if (badgeBox) {
         badgeBox.innerHTML = categories.map(c => `
-          <div class="cat-badge">
-            📁 ${c}
-          </div>
+          <div class="cat-badge">📁 ${c}</div>
         `).join('');
       }
 
-      // Update Add Product Select Dropdown
       const selectBox = document.getElementById('prod-category-select');
       if (selectBox) {
         selectBox.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -415,10 +440,10 @@
       badgeBox.appendChild(div);
 
       input.value = '';
-      alert(`Category "${catName}" added! Now you can add products under it.`);
+      alert(`Category "${catName}" added!`);
     }
 
-    // 3. Products Management with Live Image Upload
+    // 3. Products Management
     async function loadAdminProducts() {
       const res = await fetch('/api/products');
       const data = await res.json();
@@ -560,10 +585,10 @@
     function filterAdminOrders() {
       const q = document.getElementById("search-orders-input").value.toLowerCase();
       const filtered = globalOrders.filter(o => 
-        (`ORD-${o.id}`).toLowerCase().includes(q) ||
-        (o.business_name && o.business_name.toLowerCase().includes(q)) ||
-        (o.username && o.username.toLowerCase().includes(q)) ||
-        (o.shipping_state && o.shipping_state.toLowerCase().includes(q)) ||
+        (`ORD-${o.id}`).toLowerCase().includes(q) || 
+        (o.business_name && o.business_name.toLowerCase().includes(q)) || 
+        (o.username && o.username.toLowerCase().includes(q)) || 
+        (o.shipping_state && o.shipping_state.toLowerCase().includes(q)) || 
         (o.shipping_phone && o.shipping_phone.includes(q))
       );
       renderAdminOrders(filtered);
@@ -592,18 +617,22 @@
             <td><strong>₹${Number(o.total).toLocaleString('en-IN')}</strong></td>
             <td><span class="stamp stamp-blue">${o.payment_mode}</span></td>
             <td>${date}</td>
-            <td><span class="stamp ${o.status === 'Delivered' ? 'stamp-green' : (o.status === 'Cancelled' || o.status === 'Returned' ? 'stamp-red' : 'stamp-blue')}">${o.status}</span></td>
             <td>
-              <select id="status-select-${o.id}" style="font-size:0.85rem; padding:3px;">
+              <select id="status-select-${o.id}" style="font-size:0.85rem; padding:3px; width: 100%;">
                 <option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="Processing" ${o.status === 'Processing' ? 'selected' : ''}>Processing</option>
                 <option value="Dispatched" ${o.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
                 <option value="Delivered" ${o.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
                 <option value="Return Requested" ${o.status === 'Return Requested' ? 'selected' : ''}>Return Requested</option>
                 <option value="Returned" ${o.status === 'Returned' ? 'selected' : ''}>Returned (Refund)</option>
                 <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
               </select>
-              <div style="margin-top: 5px; display: flex; gap: 4px;">
-                <button onclick="saveOrderStatus(${o.id})" class="btn btn-green" style="padding: 4px 8px; font-size: 0.75rem;">Save Status</button>
+            </td>
+            <td>
+              <div style="display: flex; gap: 4px;">
+                <button onclick="saveOrderStatusAndNotify(${o.id}, '${o.shipping_phone || o.phone || ''}', '${(o.business_name || o.username || '').replace(/'/g, "\\'")}')" class="btn btn-green" style="padding: 4px 8px; font-size: 0.75rem; white-space: nowrap;">
+                  💾 Save & 📲 WA
+                </button>
                 <button onclick="printGSTInvoice(${o.id})" class="btn" style="padding: 4px 8px; font-size: 0.75rem;">🖨️ Invoice</button>
               </div>
             </td>
@@ -612,7 +641,7 @@
       }).join('');
     }
 
-    async function saveOrderStatus(id) {
+    async function saveOrderStatusAndNotify(id, phone, dealerName) {
       const selectElem = document.getElementById(`status-select-${id}`);
       if (!selectElem) return;
       const status = selectElem.value;
@@ -626,7 +655,28 @@
         const data = await res.json();
         
         if (data.success) {
-          alert(data.message);
+          alert(`Order #ORD-${id} status updated to: ${status}`);
+
+          // WhatsApp Trigger
+          const cleanPhone = (phone || '').replace(/\D/g, '');
+          const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+
+          const text = encodeURIComponent(
+            `📦 *SHAILPUTRI AGRO FOODS PVT LTD*\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `प्रिय *${dealerName || 'Dealer Partner'}*,\n` +
+            `आपके *Order #ORD-${id}* का स्टेटस अपडेट कर दिया गया है:\n\n` +
+            `📌 *Status:* ${status}\n\n` +
+            `📞 सहायता के लिए संपर्क करें: +91 8544241851\n` +
+            `धन्यवाद!`
+          );
+
+          if (targetPhone) {
+            window.open(`https://wa.me/${targetPhone}?text=${text}`, '_blank');
+          } else {
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+          }
+
           fetchOrders();
         } else {
           alert(data.message || "Failed to update status");
@@ -696,7 +746,7 @@
       loadRetailers();
     }
 
-    // 6. Master Invoice Generator
+    // 6. Master Invoice Generator (With Bank Details & Signature Stamp)
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -842,7 +892,17 @@
               <tbody>${rowsHtml}</tbody>
             </table>
 
-            <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
+              <!-- Bank Details on Invoice -->
+              <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
+                <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
+                Bank Name: <strong>${companyConfig.bank_name || 'State Bank of India'}</strong><br>
+                Account No: <strong>${companyConfig.bank_account_no || '423589123456'}</strong><br>
+                IFSC Code: <strong>${companyConfig.bank_ifsc || 'SBIN0001234'}</strong><br>
+                Branch: <strong>${companyConfig.bank_branch || 'Purnia Main Branch'}</strong>
+              </div>
+
+              <!-- Total Calculations -->
               <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
                 <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
                 <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
@@ -865,11 +925,17 @@
 
             <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end;">
               <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-              <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
-                <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
-                  🖨️ Print / Save PDF
-                </button>
+              <div style="text-align: center;">
+                ${companyConfig.signatory_url ? `<img src="${companyConfig.signatory_url}" style="height: 60px; max-width: 140px; object-fit: contain; margin-bottom: 4px;"><br>` : ''}
+                <strong style="font-size: 12px; color: #102a43;">For ${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PVT LTD'}</strong><br>
+                <span style="font-size: 11px; color: #64748b;">Authorized Signatory</span>
               </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
+              <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
+                🖨️ Print / Save PDF
+              </button>
             </div>
           </body>
         </html>
