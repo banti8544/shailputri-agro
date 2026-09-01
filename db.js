@@ -85,7 +85,7 @@ const existingConfig = db.prepare('SELECT id FROM company_settings WHERE id = 1'
 if (!existingConfig) {
   db.prepare(`
     INSERT INTO company_settings (id, company_name, address, state, gstin, fssai, udyam, cin, phone, email, logo_url, signatory_url, bulk_qty_threshold, bulk_discount_percent)
-    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/SAFPL.jpg', 'images/SAFPL.jpg', 10, 3)
+    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/logo.jpg', 'images/logo.jpg', 10, 3)
   `).run();
 } else {
   // Update logo if already exists
