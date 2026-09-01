@@ -374,7 +374,7 @@ function updateCartUI() {
   }
 }
 
-// 4. Place Wholesale Order & Free Smart Timer Checkout
+// 4. Place Wholesale Order & Payment Gateway Trigger
 function placeOrder() {
   if (!loggedInUser) {
     alert("Please login to place wholesale orders!");
@@ -399,54 +399,67 @@ function placeOrder() {
     if (gatewayModal) {
       document.getElementById("gateway-total-display").textContent = `₹${total.toLocaleString('en-IN')}`;
       const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
-      document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(upiLink)}`;
+      document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=165x165&data=${encodeURIComponent(upiLink)}`;
       
       const utrInput = document.getElementById("upi-utr-input");
       if (utrInput) utrInput.value = "";
 
+      switchPaymentTab('upi');
       gatewayModal.style.display = "flex";
-      startAutoConfirmTimer();
     }
   } else {
     executeFinalOrder(paymentMode);
   }
 }
 
-function startAutoConfirmTimer() {
-  clearInterval(paymentTimerInterval);
-  remainingSeconds = 15;
-  const timerDisplay = document.getElementById("qr-timer");
-  const progressBar = document.getElementById("qr-progress-bar");
-
-  if (timerDisplay) timerDisplay.textContent = `${remainingSeconds}s`;
-  if (progressBar) progressBar.style.width = "100%";
-
-  paymentTimerInterval = setInterval(() => {
-    remainingSeconds--;
-    if (timerDisplay) timerDisplay.textContent = `${remainingSeconds}s`;
-    if (progressBar) progressBar.style.width = `${(remainingSeconds / 15) * 100}%`;
-
-    if (remainingSeconds <= 0) {
-      clearInterval(paymentTimerInterval);
-      confirmAutoPayment();
-    }
-  }, 1000);
-}
-
 function closePaymentGateway() {
-  clearInterval(paymentTimerInterval);
   const modal = document.getElementById("payment-gateway-modal");
   if (modal) modal.style.display = "none";
 }
 
-function confirmAutoPayment() {
-  clearInterval(paymentTimerInterval);
-  const utr = document.getElementById("upi-utr-input")?.value.trim();
+// Switch between UPI, Cards, and NetBanking
+function switchPaymentTab(tab) {
+  const tabUpi = document.getElementById("pg-tab-upi");
+  const tabCards = document.getElementById("pg-tab-cards");
+  const tabNet = document.getElementById("pg-tab-netbanking");
+
+  const btnUpi = document.getElementById("tab-btn-upi");
+  const btnCards = document.getElementById("tab-btn-cards");
+  const btnNet = document.getElementById("tab-btn-netbanking");
+
+  if (tabUpi) tabUpi.style.display = (tab === 'upi') ? 'block' : 'none';
+  if (tabCards) tabCards.style.display = (tab === 'cards') ? 'block' : 'none';
+  if (tabNet) tabNet.style.display = (tab === 'netbanking') ? 'block' : 'none';
+
+  if (btnUpi) { btnUpi.style.background = (tab === 'upi') ? '#102a43' : '#e2e8f0'; btnUpi.style.color = (tab === 'upi') ? '#fff' : '#334155'; }
+  if (btnCards) { btnCards.style.background = (tab === 'cards') ? '#102a43' : '#e2e8f0'; btnCards.style.color = (tab === 'cards') ? '#fff' : '#334155'; }
+  if (btnNet) { btnNet.style.background = (tab === 'netbanking') ? '#102a43' : '#e2e8f0'; btnNet.style.color = (tab === 'netbanking') ? '#fff' : '#334155'; }
+}
+
+// 1. UPI QR Submit
+function confirmUpiPayment() {
+  const utr = (document.getElementById("upi-utr-input")?.value || "").trim();
   closePaymentGateway();
-  const modeText = utr ? `Online UPI (UTR: ${utr})` : `Online UPI (Auto-Detected)`;
+  const modeText = utr ? `Online UPI (UTR: ${utr})` : `Online UPI (QR Paid)`;
   executeFinalOrder(modeText);
 }
 
+// 2. Card Payment Submit
+function handleCardPayment(e) {
+  e.preventDefault();
+  const cardNum = (document.getElementById("card-num")?.value || "").slice(-4);
+  closePaymentGateway();
+  executeFinalOrder(`Card Payment (Ending in •••• ${cardNum || 'XXXX'})`);
+}
+
+// 3. Net Banking Submit
+function handleNetBankingPayment() {
+  const bank = document.getElementById("netbank-select")?.value || "Net Banking";
+  closePaymentGateway();
+  executeFinalOrder(`Net Banking (${bank})`);
+}
+
+// Execute Final Order & Open WhatsApp
 async function executeFinalOrder(finalPaymentMode) {
   let total = 0;
   const orderedItems = [];
@@ -501,14 +514,17 @@ async function executeFinalOrder(finalPaymentMode) {
       actionsDiv.style.display = "block";
       actionsDiv.innerHTML = `
         <div style="background:#e6f4ea; padding:1.5rem; border-radius:8px; text-align:center; border:1px solid #c6ebd0;">
-          <h3 style="color:#137333; margin:0 0 0.5rem 0;">🎉 Order #ORD-${data.orderId} Confirmed (${finalPaymentMode})!</h3>
-          <p style="margin:0 0 1rem 0; color:#475569;">भुगतान दर्ज हो चुका है! कुल राशि: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
+          <h3 style="color:#137333; margin:0 0 0.5rem 0;">🎉 Order #ORD-${data.orderId} Confirmed!</h3>
+          <p style="margin:0 0 0.4rem 0; color:#1e293b;">Payment Method: <strong>${finalPaymentMode}</strong></p>
+          <p style="margin:0 0 1rem 0; color:#475569;">Total Amount: <strong>₹${total.toLocaleString('en-IN')}</strong></p>
           <div style="display:flex; justify-content:center; gap:10px;">
             <button onclick="showSection('ledger')" style="background:#102a43; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📄 View in Ledger</button>
             <button onclick="sendWhatsAppInvoice(${data.orderId})" style="background:#25D366; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📲 WhatsApp Receipt</button>
           </div>
         </div>
       `;
+
+      window.sendWhatsAppInvoice(data.orderId);
     } else {
       alert(data.message || "Order failed.");
     }
