@@ -60,6 +60,32 @@
 
     <div class="container">
 
+      <!-- 0. Database Backup & Restore Box -->
+      <div class="card-box" style="background: #fffbeb; border: 1px solid #fef08a; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 style="margin: 0 0 4px 0; color: #854d0e; font-size: 1.1rem;">💾 Database Backup & Data Safety</h3>
+            <p style="margin: 0; font-size: 0.85rem; color: #713f12;">
+              सर्वर अपडेट या रीस्टार्ट होने से पहले अपने सभी ऑर्डर्स, प्रोडक्ट्स और डीलर्स का सुरक्षित बैकअप डाउनलोड करें।
+            </p>
+          </div>
+          
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="/api/admin/backup-db" class="btn" style="background: #102a43; text-decoration: none; font-size: 0.85rem; padding: 8px 14px;">
+              📥 Download .db File
+            </a>
+            <a href="/api/admin/backup-json" class="btn btn-green" style="text-decoration: none; font-size: 0.85rem; padding: 8px 14px;">
+              📥 Download JSON Backup
+            </a>
+            
+            <label for="restore-file-input" class="btn" style="background: #d97706; cursor: pointer; font-size: 0.85rem; padding: 8px 14px; margin: 0;">
+              📤 Restore JSON
+            </label>
+            <input type="file" id="restore-file-input" accept=".json" onchange="restoreBackupFile(event)" style="display: none;">
+          </div>
+        </div>
+      </div>
+
       <!-- 1. Company Profile & Settings -->
       <div class="card-box">
         <h2>1. Shailputri Agro Foods - Tax, Logos, Bank & Bulk Rules</h2>
@@ -344,6 +370,42 @@
       window.location.reload();
     }
 
+    // Backup Restore Execution
+    async function restoreBackupFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!confirm(`क्या आप वाकई "${file.name}" से पूरा डेटा रिस्टोर करना चाहते हैं? इससे मौजूदा डेटा अपडेट हो जाएगा।`)) {
+        event.target.value = '';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('backupFile', file);
+
+      try {
+        const res = await fetch('/api/admin/restore-json', {
+          method: 'POST',
+          body: formData
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          alert('✅ ' + result.message);
+          loadCompanySettings();
+          loadAdminProducts();
+          fetchOrders();
+          loadRetailers();
+        } else {
+          alert('❌ ' + (result.message || 'Restore failed'));
+        }
+      } catch (err) {
+        alert('Server error during restore.');
+      } finally {
+        event.target.value = '';
+      }
+    }
+
     // 1. Company Settings
     async function loadCompanySettings() {
       const res = await fetch('/api/company-settings');
@@ -551,52 +613,58 @@
     }
 
     async function addNewProduct(e) {
-  e.preventDefault();
-  
-  const submitBtn = e.target.querySelector('button[type="submit"]');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "⏳ Uploading & Saving...";
-  }
+      e.preventDefault();
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏳ Uploading & Saving...";
+      }
 
-  const formData = new FormData();
-  formData.append('name', document.getElementById('prod-name').value.trim());
-  formData.append('category', document.getElementById('prod-category-select').value);
-  formData.append('sku', document.getElementById('prod-sku').value.trim());
-  formData.append('hsn', document.getElementById('prod-hsn').value.trim());
-  formData.append('gst_rate', document.getElementById('prod-gst-rate').value);
-  formData.append('price', document.getElementById('prod-price').value);
-  formData.append('stock', document.getElementById('prod-stock').value || 50);
+      const formData = new FormData();
+      formData.append('name', document.getElementById('prod-name').value.trim());
+      formData.append('category', document.getElementById('prod-category-select').value);
+      formData.append('sku', document.getElementById('prod-sku').value.trim());
+      formData.append('hsn', document.getElementById('prod-hsn').value.trim());
+      formData.append('gst_rate', document.getElementById('prod-gst-rate').value);
+      formData.append('price', document.getElementById('prod-price').value);
+      formData.append('stock', document.getElementById('prod-stock').value || 50);
 
-  // Computer Drive File Input
-  const fileInput = document.getElementById('prod-img-file');
-  if (fileInput && fileInput.files && fileInput.files[0]) {
-    formData.append('image', fileInput.files[0]); // field name 'image'
-  }
+      const fileInput = document.getElementById('prod-img-file');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+      }
 
-  try {
-    const res = await fetch('/api/products/add', {
-      method: 'POST',
-      body: formData
-    });
-    const result = await res.json();
+      try {
+        const res = await fetch('/api/products/add', {
+          method: 'POST',
+          body: formData
+        });
+        const result = await res.json();
 
-    if (result.success) {
-      alert('✅ Product & Image uploaded successfully!');
-      document.getElementById('add-product-form').reset();
+        if (result.success) {
+          alert('✅ Product & Image uploaded successfully!');
+          document.getElementById('add-product-form').reset();
+          loadAdminProducts();
+        } else {
+          alert('❌ Error: ' + (result.message || 'Failed to add product'));
+        }
+      } catch (err) {
+        alert('Server error while saving product.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "+ Save Item";
+        }
+      }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete product?')) return;
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
       loadAdminProducts();
-    } else {
-      alert('❌ Error: ' + (result.message || 'Failed to add product'));
     }
-  } catch (err) {
-    alert('Server error while saving product.');
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "+ Save Item";
-    }
-  }
-}
+
     // 4. Orders Management
     async function fetchOrders() {
       const res = await fetch('/api/orders');
@@ -679,7 +747,6 @@
         if (data.success) {
           alert(`Order #ORD-${id} status updated to: ${status}`);
 
-          // WhatsApp Trigger
           const cleanPhone = (phone || '').replace(/\D/g, '');
           const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
@@ -946,13 +1013,14 @@
             </div>
 
             <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-  <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-  <div style="text-align: center;">
-    <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
-    <img src="${companyConfig.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
-    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
-  </div>
-</div>
+              <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
+              <div style="text-align: center;">
+                <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
+                <img src="${companyConfig.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
+                <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
+              </div>
+            </div>
+
             <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
               <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
                 🖨️ Print / Save PDF
