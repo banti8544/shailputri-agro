@@ -48,52 +48,15 @@ addCol('orders', 'shipping_address', 'TEXT');
 addCol('orders', 'shipping_phone', 'TEXT');
 addCol('orders', 'shipping_state', "TEXT DEFAULT 'Bihar'");
 
-// Credit Repayments Table
-try {
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS credit_repayments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT,
-      amount INTEGER,
-      created_at TEXT
-    )
-  `).run();
-} catch (e) {}
-
-// Company Settings Table
-try {
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS company_settings (
-      id INTEGER PRIMARY KEY,
-      company_name TEXT,
-      address TEXT,
-      state TEXT,
-      gstin TEXT,
-      fssai TEXT,
-      udyam TEXT,
-      cin TEXT,
-      phone TEXT,
-      email TEXT,
-      logo_url TEXT,
-      signatory_url TEXT,
-      bulk_qty_threshold INTEGER DEFAULT 10,
-      bulk_discount_percent INTEGER DEFAULT 3
-    )
-  `).run();
-
-  const cfg = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
-  if (!cfg) {
-    db.prepare(`
-      INSERT INTO company_settings (id, company_name, address, state, gstin, fssai, udyam, cin, phone, email, logo_url, signatory_url, bulk_qty_threshold, bulk_discount_percent)
-      VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/placeholder.png', 'images/placeholder.png', 10, 3)
-    `).run();
-  }
-} catch(e) {}
-
+// Company Settings Migrations
 addCol('company_settings', 'bulk_qty_threshold', 'INTEGER DEFAULT 10');
 addCol('company_settings', 'bulk_discount_percent', 'INTEGER DEFAULT 3');
-addCol('company_settings', 'signatory_url', 'TEXT');
-addCol('company_settings', 'logo_url', 'TEXT');
+addCol('company_settings', 'signatory_url', "TEXT DEFAULT 'images/SAFPL.jpg'");
+addCol('company_settings', 'logo_url', "TEXT DEFAULT 'images/SAFPL.jpg'");
+addCol('company_settings', 'bank_name', "TEXT DEFAULT 'State Bank of India'");
+addCol('company_settings', 'bank_account_no', "TEXT DEFAULT '423589123456'");
+addCol('company_settings', 'bank_ifsc', "TEXT DEFAULT 'SBIN0001234'");
+addCol('company_settings', 'bank_branch', "TEXT DEFAULT 'Purnia Main Branch'");
 
 // Uploads / Images Directory Setup
 const uploadDir = path.join(__dirname, 'images');
@@ -150,23 +113,59 @@ app.get(['/api/gst-lookup/:gstin', '/api/fetch-gst/:gstin'], (req, res) => {
   res.json({ success: true, firmName, address: fullAddress, state: detectedState, stateCode });
 });
 
-// 3. Company Settings APIs
+// 3. Company Settings APIs (GET, PUT & POST with Files)
 app.get('/api/company-settings', (req, res) => {
-  const config = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
-  res.json(config || {});
+  try {
+    const config = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
+    res.json(config || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+app.put('/api/company-settings', (req, res) => {
+  try {
+    const { 
+      company_name, address, state, gstin, fssai, udyam, cin, phone, email, 
+      bulk_qty_threshold, bulk_discount_percent,
+      bank_name, bank_account_no, bank_ifsc, bank_branch
+    } = req.body;
+
+    db.prepare(`
+      UPDATE company_settings 
+      SET company_name = ?, address = ?, state = ?, gstin = ?, fssai = ?, udyam = ?, cin = ?, 
+          phone = ?, email = ?, bulk_qty_threshold = ?, bulk_discount_percent = ?,
+          bank_name = ?, bank_account_no = ?, bank_ifsc = ?, bank_branch = ?
+      WHERE id = 1
+    `).run(
+      company_name, address, state, gstin, fssai, udyam, cin, phone, email, 
+      parseInt(bulk_qty_threshold) || 10, parseInt(bulk_discount_percent) || 3,
+      bank_name || '', bank_account_no || '', bank_ifsc || '', bank_branch || ''
+    );
+
+    res.json({ success: true, message: 'Settings & Bank Details updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 app.post('/api/company-settings', uploadImage.fields([{ name: 'companyLogo', maxCount: 1 }, { name: 'signatoryStamp', maxCount: 1 }]), (req, res) => {
   try {
-    const { company_name, address, state, gstin, fssai, udyam, cin, phone, email, bulk_qty_threshold, bulk_discount_percent } = req.body;
+    const { 
+      company_name, address, state, gstin, fssai, udyam, cin, phone, email, 
+      bulk_qty_threshold, bulk_discount_percent,
+      bank_name, bank_account_no, bank_ifsc, bank_branch 
+    } = req.body;
     
     let updates = [
       "company_name = ?", "address = ?", "state = ?", "gstin = ?", "fssai = ?", 
-      "udyam = ?", "cin = ?", "phone = ?", "email = ?", "bulk_qty_threshold = ?", "bulk_discount_percent = ?"
+      "udyam = ?", "cin = ?", "phone = ?", "email = ?", "bulk_qty_threshold = ?", "bulk_discount_percent = ?",
+      "bank_name = ?", "bank_account_no = ?", "bank_ifsc = ?", "bank_branch = ?"
     ];
     let params = [
       company_name, address, state, gstin, fssai, 
-      udyam, cin, phone, email, parseInt(bulk_qty_threshold) || 10, parseInt(bulk_discount_percent) || 3
+      udyam, cin, phone, email, parseInt(bulk_qty_threshold) || 10, parseInt(bulk_discount_percent) || 3,
+      bank_name || '', bank_account_no || '', bank_ifsc || '', bank_branch || ''
     ];
 
     if (req.files && req.files['companyLogo']) {
@@ -181,7 +180,7 @@ app.post('/api/company-settings', uploadImage.fields([{ name: 'companyLogo', max
     params.push(1);
     db.prepare(`UPDATE company_settings SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
-    res.json({ success: true, message: 'Settings, Bulk Margins & Logos saved!' });
+    res.json({ success: true, message: 'Settings, Bank Details & Logos saved!' });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }
@@ -540,13 +539,14 @@ app.post('/api/orders/:id/return', (req, res) => {
   }
 });
 
-app.post('/api/orders/:id/status', (req, res) => {
+// Update Order Status & Payment Status (PUT & POST Supported)
+const updateStatusHandler = (req, res) => {
   try {
     const orderId = Number(req.params.id);
-    const { status } = req.body;
+    const { status, payment_status } = req.body;
 
-    if (!status) {
-      return res.status(400).json({ success: false, message: 'Status is required' });
+    if (!status && !payment_status) {
+      return res.status(400).json({ success: false, message: 'Status or Payment Status is required' });
     }
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -554,7 +554,10 @@ app.post('/api/orders/:id/status', (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    if ((status === 'Cancelled' || status === 'Returned') && order.status !== status) {
+    const targetStatus = status || order.status;
+    const targetPayStatus = payment_status || order.payment_status;
+
+    if ((targetStatus === 'Cancelled' || targetStatus === 'Returned') && order.status !== targetStatus) {
       if (order.payment_mode === 'Credit' && order.username) {
         const cleanUser = order.username.replace(/^@/, '');
         try {
@@ -572,13 +575,16 @@ app.post('/api/orders/:id/status', (req, res) => {
       } catch(e) {}
     }
 
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
-    res.json({ success: true, message: `Order #${orderId} status updated to ${status}!` });
+    db.prepare('UPDATE orders SET status = ?, payment_status = ? WHERE id = ?').run(targetStatus, targetPayStatus, orderId);
+    res.json({ success: true, message: `Order #${orderId} updated to [${targetStatus} | ${targetPayStatus}]!` });
   } catch (err) {
     console.error('Order status update error:', err);
     res.status(500).json({ success: false, message: 'Server error while updating status' });
   }
-});
+};
+
+app.put('/api/orders/:id/status', updateStatusHandler);
+app.post('/api/orders/:id/status', updateStatusHandler);
 
 // 7. Statement, Repayments & Profile Me
 app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], (req, res) => {
@@ -684,7 +690,7 @@ app.get('/api/retailers/me', (req, res) => {
   }
 });
 
-// 8. Start Server (CRITICAL)
+// 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
