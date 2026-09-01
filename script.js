@@ -646,194 +646,226 @@ window.returnCustomerOrder = async function(orderId) {
   }
 };
 
-// 7. Master Unified GST Tax Invoice Generator
+// Master Customer/Dealer Invoice Generator
 async function printCustomerInvoice(orderId) {
+  let order = null;
   try {
-    const [cfgRes, ordRes] = await Promise.all([fetch('/api/company-settings'), fetch('/api/orders')]);
-    const cfg = await cfgRes.json();
-    const orders = await ordRes.json();
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+    const res = await fetch('/api/orders');
+    const allOrders = await res.json();
+    order = allOrders.find(o => o.id === orderId);
+  } catch (err) {
+    console.error("Error fetching order:", err);
+  }
 
-    const sellerState = (cfg.state || 'Assam').trim().toLowerCase();
-    const buyerState = (order.shipping_state || order.billing_state || 'Bihar').trim().toLowerCase();
-    const isSameState = (sellerState === buyerState);
+  if (!order) {
+    alert("Order details could not be loaded.");
+    return;
+  }
 
-    const bulkThreshold = cfg.bulk_qty_threshold || 10;
-    const bulkExtraPercent = cfg.bulk_discount_percent !== undefined ? cfg.bulk_discount_percent : 3;
+  // Fetch Live Company & Bank Settings
+  let config = {};
+  try {
+    const cfgRes = await fetch('/api/company-settings');
+    config = await cfgRes.json();
+  } catch(e) {
+    config = {};
+  }
 
-    let rawItems = [];
-    try { rawItems = JSON.parse(order.items); } catch(e) { rawItems = [{ name: 'Products', price: order.total }]; }
+  const sellerState = (config.state || 'Assam').trim().toLowerCase();
+  const buyerState = (order.shipping_state || order.billing_state || 'Bihar').trim().toLowerCase();
+  const isSameState = (sellerState === buyerState);
 
-    const grouped = {};
-    rawItems.forEach(i => {
-      const k = i.name;
-      if (!grouped[k]) grouped[k] = { ...i, qty: 1 };
-      else grouped[k].qty += 1;
-    });
+  const bulkThreshold = config.bulk_qty_threshold || 10;
+  const bulkExtraPercent = config.bulk_discount_percent !== undefined ? config.bulk_discount_percent : 3;
 
-    let grossCatalogTotal = 0;
-    let totalDiscountGiven = 0;
-    let netTaxableTotal = 0;
-    let totalCGST = 0, totalSGST = 0, totalIGST = 0;
-    let rowsHtml = '';
+  let rawItems = [];
+  try { 
+    rawItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items; 
+  } catch(e) { 
+    rawItems = [{ name: 'Products', price: order.total }]; 
+  }
 
-    Object.values(grouped).forEach((item, idx) => {
-      const gstRate = (item.gst_rate !== undefined && item.gst_rate !== null) ? Number(item.gst_rate) : 5;
-      const catalogMRP = item.originalPrice || item.price;
+  const grouped = {};
+  rawItems.forEach(i => {
+    const k = i.name;
+    if (!grouped[k]) grouped[k] = { ...i, qty: 1 };
+    else grouped[k].qty += 1;
+  });
 
-      let finalPricePerUnit = item.price;
-      if (item.qty >= bulkThreshold) {
-        finalPricePerUnit = Math.round(item.price * (1 - (bulkExtraPercent / 100)));
-      }
+  let grossCatalogTotal = 0;
+  let totalDiscountGiven = 0;
+  let netTaxableTotal = 0;
+  let totalCGST = 0, totalSGST = 0, totalIGST = 0;
+  let rowsHtml = '';
 
-      const itemGross = catalogMRP * item.qty;
-      const itemFinalTotal = finalPricePerUnit * item.qty;
-      const itemDiscount = Math.max(0, itemGross - itemFinalTotal);
-      const discountPerCase = (itemDiscount / item.qty);
+  Object.values(grouped).forEach((item, idx) => {
+    const gstRate = item.gst_rate || 5;
+    const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
 
-      grossCatalogTotal += itemGross;
-      totalDiscountGiven += itemDiscount;
+    let finalPricePerUnit = item.price;
+    if (item.qty >= bulkThreshold) {
+      finalPricePerUnit = Math.round(item.price * (1 - (bulkExtraPercent / 100)));
+    }
 
-      const baseTaxable = Math.round((itemFinalTotal / (1 + (gstRate / 100))) * 100) / 100;
-      const itemTaxAmount = Math.round((itemFinalTotal - baseTaxable) * 100) / 100;
-      netTaxableTotal += baseTaxable;
+    const itemGross = catalogMRP * item.qty;
+    const itemFinalTotal = finalPricePerUnit * item.qty;
+    const itemDiscount = Math.max(0, itemGross - itemFinalTotal);
+    const discountPerCase = (itemDiscount / item.qty);
 
-      let taxBreakup = '';
-      if (isSameState) {
-        const half = Math.round((itemTaxAmount / 2) * 100) / 100;
-        totalCGST += half;
-        totalSGST += half;
-        taxBreakup = `CGST (${(gstRate/2)}%): ₹${half.toFixed(2)}<br>SGST (${(gstRate/2)}%): ₹${half.toFixed(2)}`;
-      } else {
-        totalIGST += itemTaxAmount;
-        taxBreakup = `IGST (${gstRate}%): ₹${itemTaxAmount.toFixed(2)}`;
-      }
+    grossCatalogTotal += itemGross;
+    totalDiscountGiven += itemDiscount;
 
-      rowsHtml += `
-        <tr>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1006'}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">${taxBreakup}</td>
-          <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;"><strong>₹${itemFinalTotal.toFixed(2)}</strong></td>
-        </tr>
-      `;
-    });
+    const baseTaxable = Math.round((itemFinalTotal / (1 + (gstRate / 100))) * 100) / 100;
+    const itemTaxAmount = Math.round((itemFinalTotal - baseTaxable) * 100) / 100;
+    netTaxableTotal += baseTaxable;
 
-    const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
+    let taxBreakup = '';
+    if (isSameState) {
+      const half = Math.round((itemTaxAmount / 2) * 100) / 100;
+      totalCGST += half;
+      totalSGST += half;
+      taxBreakup = `CGST (${gstRate/2}%): ₹${half}<br>SGST (${gstRate/2}%): ₹${half}`;
+    } else {
+      totalIGST += itemTaxAmount;
+      taxBreakup = `IGST (${gstRate}%): ₹${itemTaxAmount}`;
+    }
 
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <html>
-        <head>
-          <title>GST Tax Invoice - ORD-${order.id}</title>
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; margin: 0 auto; max-width: 920px; }
-            .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; position: relative; }
-            .logo-top { position: absolute; right: 0; top: 0; height: 80px; max-width: 150px; object-fit: contain; }
-            .grid-2 { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
-            .box { flex: 1; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th { background: #102a43; color: white; padding: 7px; font-size: 12px; border: 1px solid #102a43; }
-            @media print { .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="header-container">
-            ${cfg.logo_url ? `<img src="${cfg.logo_url}" class="logo-top" alt="Logo">` : ''}
-            <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 24px; letter-spacing: 0.5px;">${cfg.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
-            <p style="margin: 2px 0; font-size: 13px; color: #334155; font-weight: 500;">${cfg.address}</p>
-            <p style="margin: 4px 0 0 0; font-size: 11.5px; color: #475569;">
-              <strong>GSTIN:</strong> ${cfg.gstin} &nbsp;|&nbsp; <strong>FSSAI:</strong> ${cfg.fssai} &nbsp;|&nbsp; <strong>CIN:</strong> ${cfg.cin} &nbsp;|&nbsp; <strong>UDYAM:</strong> ${cfg.udyam}
-            </p>
+    rowsHtml += `
+      <tr>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1512'}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">${taxBreakup}</td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;"><strong>₹${itemFinalTotal.toFixed(2)}</strong></td>
+      </tr>
+    `;
+  });
+
+  const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html>
+      <head>
+        <title>GST Tax Invoice - ORD-${order.id}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; margin: 0 auto; max-width: 920px; }
+          .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; position: relative; }
+          .logo-top { position: absolute; right: 0; top: 0; height: 75px; max-width: 140px; object-fit: contain; }
+          .grid-2 { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+          .box { flex: 1; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #102a43; color: white; padding: 7px; font-size: 12px; border: 1px solid #102a43; }
+          @media print { .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="header-container">
+          <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='images/placeholder.png'">
+          <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px; letter-spacing: 0.5px;">${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
+          <p style="margin: 2px 0; font-size: 12px; color: #334155; font-weight: 500;">${config.address || 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027'}</p>
+          <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;">
+            <strong>GSTIN:</strong> ${config.gstin || '18ABUCS6903N1Z5'} &nbsp;|&nbsp; <strong>FSSAI:</strong> ${config.fssai || '10424000001234'} &nbsp;|&nbsp; <strong>CIN:</strong> ${config.cin || 'U46201AS2026PTC031042'} &nbsp;|&nbsp; <strong>UDYAM:</strong> ${config.udyam || 'UDYAM-AS-25-0046796'}
+          </p>
+        </div>
+
+        <h3 style="text-align: center; margin: 5px 0 12px 0; letter-spacing: 1px; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
+
+        <div class="grid-2">
+          <div class="box">
+            <strong style="color:#102a43; font-size: 13px;">🏢 BILLED TO (Buyer Details):</strong><br>
+            <strong style="font-size: 13px;">${order.business_name || 'Dealer'}</strong><br>
+            Address: ${order.billing_address || 'N/A'}<br>
+            State: <strong>${order.billing_state || 'Bihar'}</strong> | GSTIN: <strong>${order.buyer_gstin || 'Unregistered'}</strong>
           </div>
-
-          <h3 style="text-align: center; margin: 5px 0 12px 0; letter-spacing: 1px; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
-
-          <div class="grid-2">
-            <div class="box">
-              <strong style="color:#102a43; font-size: 13px;">🏢 BILLED TO (Buyer Details):</strong><br>
-              <strong style="font-size: 13px;">${order.business_name || loggedInBusiness}</strong><br>
-              Address: ${order.billing_address || 'N/A'}<br>
-              State: <strong>${order.billing_state || 'Bihar'}</strong> | GSTIN: <strong>${order.buyer_gstin || 'Unregistered'}</strong>
-            </div>
-            <div class="box">
-              <strong style="color:#102a43; font-size: 13px;">🚚 SHIPPED TO (Delivery Point):</strong><br>
-              Address: ${order.shipping_address}<br>
-              Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong><br>
-              Contact Mobile: <strong>${order.shipping_phone || order.phone || 'N/A'}</strong>
-            </div>
+          <div class="box">
+            <strong style="color:#102a43; font-size: 13px;">🚚 SHIPPED TO (Delivery Point):</strong><br>
+            Address: ${order.shipping_address}<br>
+            Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong><br>
+            Contact Mobile: <strong>${order.shipping_phone || order.phone || 'N/A'}</strong>
           </div>
+        </div>
 
-          <table style="margin-bottom: 10px;">
+        <table style="margin-bottom: 10px;">
+          <tr>
+            <td><strong>Invoice No:</strong> ORD-${order.id}</td>
+            <td><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')}</td>
+            <td><strong>Payment Mode:</strong> <span style="font-weight:bold; color:#0088cc;">${order.payment_mode}</span></td>
+            <td><strong>Place of Supply:</strong> ${order.shipping_state || 'Bihar'}</td>
+          </tr>
+        </table>
+
+        <table>
+          <thead>
             <tr>
-              <td><strong>Invoice No:</strong> ORD-${order.id}</td>
-              <td><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')}</td>
-              <td><strong>Payment Mode:</strong> <span style="font-weight:bold; color:#0088cc;">${order.payment_mode}</span></td>
-              <td><strong>Place of Supply:</strong> ${order.shipping_state || 'Bihar'}</td>
+              <th style="width: 4%;">#</th>
+              <th>Item Description</th>
+              <th style="width: 8%;">HSN</th>
+              <th style="width: 6%; text-align: center;">Qty</th>
+              <th style="width: 10%; text-align: right;">MRP (₹)</th>
+              <th style="width: 10%; text-align: right;">Disc (₹)</th>
+              <th style="width: 12%; text-align: right;">Taxable (₹)</th>
+              <th style="width: 22%;">GST Split</th>
+              <th style="width: 14%; text-align: right;">Total (₹)</th>
             </tr>
-          </table>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
 
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 4%;">#</th>
-                <th>Item Description</th>
-                <th style="width: 8%;">HSN</th>
-                <th style="width: 6%; text-align: center;">Qty</th>
-                <th style="width: 10%; text-align: right;">MRP (₹)</th>
-                <th style="width: 10%; text-align: right;">Disc (₹)</th>
-                <th style="width: 12%; text-align: right;">Taxable (₹)</th>
-                <th style="width: 22%;">GST Split</th>
-                <th style="width: 14%; text-align: right;">Total (₹)</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
+        <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
+          <!-- Bank Details on Dealer Invoice -->
+          <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
+            <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
+            Bank Name: <strong>${config.bank_name || 'State Bank of India'}</strong><br>
+            Account No: <strong>${config.bank_account_no || '423589123456'}</strong><br>
+            IFSC Code: <strong>${config.bank_ifsc || 'SBIN0001234'}</strong><br>
+            Branch: <strong>${config.bank_branch || 'Purnia Main Branch'}</strong>
+          </div>
 
-          <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
-            <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
-              <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
-              <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
-                <span>Total Discount Given:</span><span>-₹${totalDiscountGiven.toFixed(2)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px;">
-                <span>Net Taxable Value:</span><span>₹${netTaxableTotal.toFixed(2)}</span>
-              </div>
-              ${isSameState ? `
-                <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>CGST:</span><span>₹${totalCGST.toFixed(2)}</span></div>
-                <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>SGST:</span><span>₹${totalSGST.toFixed(2)}</span></div>
-              ` : `
-                <div style="display: flex; justify-content: space-between; color: #15803d; margin-top: 3px;"><span>IGST:</span><span>₹${totalIGST.toFixed(2)}</span></div>
-              `}
-              <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; border-top: 1.5px solid #94a3b8; margin-top: 6px; padding-top: 6px;">
-                <span>Grand Invoice Value:</span><span>₹${calculatedGrandTotal.toFixed(2)}</span>
-              </div>
+          <!-- Total Calculations -->
+          <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
+            <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
+            <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
+              <span>Total Discount Given:</span><span>-₹${totalDiscountGiven.toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px;">
+              <span>Net Taxable Value:</span><span>₹${netTaxableTotal.toFixed(2)}</span>
+            </div>
+            ${isSameState ? `
+              <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>CGST:</span><span>₹${totalCGST.toFixed(2)}</span></div>
+              <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>SGST:</span><span>₹${totalSGST.toFixed(2)}</span></div>
+            ` : `
+              <div style="display: flex; justify-content: space-between; color: #15803d; margin-top: 3px;"><span>IGST:</span><span>₹${totalIGST.toFixed(2)}</span></div>
+            `}
+            <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; border-top: 1.5px solid #94a3b8; margin-top: 6px; padding-top: 6px;">
+              <span>Grand Invoice Value:</span><span>₹${calculatedGrandTotal.toFixed(2)}</span>
             </div>
           </div>
+        </div>
 
-          <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-            <div style="text-align: center;">
-              <p style="margin: 0 0 5px 0; font-size: 12.5px;">For <strong>${cfg.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong></p>
-              ${cfg.signatory_url ? `<img src="${cfg.signatory_url}" alt="Stamp" style="height: 60px; max-width: 120px; object-fit: contain; margin: 4px 0;">` : '<div style="height: 50px;"></div>'}
-              <p style="margin: 0; font-weight: bold; border-top: 1px solid #64748b; padding-top: 2px;">Authorized Signatory</p>
-            </div>
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
+          <div style="text-align: center;">
+            <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 60px; max-width: 140px; object-fit: contain; margin-bottom: 4px;" onerror="this.style.display='none'"><br>
+            <strong style="font-size: 12px; color: #102a43;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong><br>
+            <span style="font-size: 11px; color: #64748b;">Authorized Signatory</span>
           </div>
+        </div>
 
-          <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
-            <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 24px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">🖨️ Print / Save PDF</button>
-          </div>
-        </body>
-      </html>
-    `);
-    win.document.close();
-  } catch (err) {}
+        <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
+          <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
+            🖨️ Print / Save PDF
+          </button>
+        </div>
+      </body>
+    </html>
+  `);
+  win.document.close();
+} catch (err) {}
 }
 
 // 8. Bulletproof Free WhatsApp Notification
