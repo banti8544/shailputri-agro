@@ -8,9 +8,6 @@ let activeModalProduct = null;
 let companyBulkConfig = { threshold: 10, discount: 1 };
 const UPI_ID = "8544241851.ibz@icici";
 
-let paymentTimerInterval = null;
-let remainingSeconds = 15;
-
 document.addEventListener("DOMContentLoaded", async () => {
   renderAuthHeader();
   await loadCompanyBulkConfig();
@@ -154,7 +151,7 @@ function renderProducts(products) {
 
 function filterProducts() {
   const query = (document.getElementById("search-input").value || "").toLowerCase();
-  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(query) || p.sku.toLowerCase().includes(query) || (p.category && p.category.toLowerCase().includes(query)));
+  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(query) || (p.sku && p.sku.toLowerCase().includes(query)) || (p.category && p.category.toLowerCase().includes(query)));
   renderProducts(filtered);
 }
 
@@ -179,7 +176,7 @@ function openQuickView(productId) {
   document.getElementById("qv-final-price").textContent = `₹${item.price}`;
 
   const bulkQty = companyBulkConfig.threshold || 10;
-  const bulkDiscPercent = companyBulkConfig.discount || 1;
+  const bulkDiscPercent = companyBulkConfig.discount || 3;
   const bulkPrice = Math.round(item.price * (1 - (bulkDiscPercent / 100)));
 
   const t1Row = document.querySelector(".tier-table tbody tr:nth-child(1) td:nth-child(1)");
@@ -287,7 +284,7 @@ function removeFromCart(index) {
 
 function getEffectiveItemPrice(item) {
   const bulkQty = companyBulkConfig.threshold || 10;
-  const bulkDisc = companyBulkConfig.discount || 1;
+  const bulkDisc = companyBulkConfig.discount || 3;
   const basePrice = item.baseDiscountedPrice || item.price;
   
   if (item.qty >= bulkQty) {
@@ -417,7 +414,6 @@ function closePaymentGateway() {
   if (modal) modal.style.display = "none";
 }
 
-// Switch between UPI, Cards, and NetBanking
 function switchPaymentTab(tab) {
   const tabUpi = document.getElementById("pg-tab-upi");
   const tabCards = document.getElementById("pg-tab-cards");
@@ -436,7 +432,6 @@ function switchPaymentTab(tab) {
   if (btnNet) { btnNet.style.background = (tab === 'netbanking') ? '#102a43' : '#e2e8f0'; btnNet.style.color = (tab === 'netbanking') ? '#fff' : '#334155'; }
 }
 
-// 1. UPI QR Submit
 function confirmUpiPayment() {
   const utr = (document.getElementById("upi-utr-input")?.value || "").trim();
   closePaymentGateway();
@@ -444,7 +439,6 @@ function confirmUpiPayment() {
   executeFinalOrder(modeText);
 }
 
-// 2. Card Payment Submit
 function handleCardPayment(e) {
   e.preventDefault();
   const cardNum = (document.getElementById("card-num")?.value || "").slice(-4);
@@ -452,14 +446,12 @@ function handleCardPayment(e) {
   executeFinalOrder(`Card Payment (Ending in •••• ${cardNum || 'XXXX'})`);
 }
 
-// 3. Net Banking Submit
 function handleNetBankingPayment() {
   const bank = document.getElementById("netbank-select")?.value || "Net Banking";
   closePaymentGateway();
   executeFinalOrder(`Net Banking (${bank})`);
 }
 
-// Execute Final Order & Open WhatsApp
 async function executeFinalOrder(finalPaymentMode) {
   let total = 0;
   const orderedItems = [];
@@ -646,7 +638,7 @@ window.returnCustomerOrder = async function(orderId) {
   }
 };
 
-// Master Customer/Dealer Invoice Generator
+// 7. Master Customer/Dealer Invoice Generator
 async function printCustomerInvoice(orderId) {
   let order = null;
   try {
@@ -662,7 +654,6 @@ async function printCustomerInvoice(orderId) {
     return;
   }
 
-  // Fetch Live Company & Bank Settings
   let config = {};
   try {
     const cfgRes = await fetch('/api/company-settings');
@@ -747,6 +738,11 @@ async function printCustomerInvoice(orderId) {
 
   const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
 
+  const buyerBusiness = order.business_name || loggedInBusiness || 'Dealer Partner';
+  const buyerAddress = order.billing_address || localStorage.getItem("address") || 'N/A';
+  const buyerStateDisplay = order.billing_state || localStorage.getItem("state") || 'Bihar';
+  const buyerGST = order.buyer_gstin || localStorage.getItem("gstin") || 'Unregistered';
+
   const win = window.open('', '_blank');
   win.document.write(`
     <html>
@@ -778,15 +774,15 @@ async function printCustomerInvoice(orderId) {
         <div class="grid-2">
           <div class="box">
             <strong style="color:#102a43; font-size: 13px;">🏢 BILLED TO (Buyer Details):</strong><br>
-            <strong style="font-size: 13px;">${order.business_name || 'Dealer'}</strong><br>
-            Address: ${order.billing_address || 'N/A'}<br>
-            State: <strong>${order.billing_state || 'Bihar'}</strong> | GSTIN: <strong>${order.buyer_gstin || 'Unregistered'}</strong>
+            <strong style="font-size: 13px;">${buyerBusiness}</strong><br>
+            Address: ${buyerAddress}<br>
+            State: <strong>${buyerStateDisplay}</strong> | GSTIN: <strong>${buyerGST}</strong>
           </div>
           <div class="box">
             <strong style="color:#102a43; font-size: 13px;">🚚 SHIPPED TO (Delivery Point):</strong><br>
             Address: ${order.shipping_address}<br>
             Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong><br>
-            Contact Mobile: <strong>${order.shipping_phone || order.phone || 'N/A'}</strong>
+            Contact Mobile: <strong>${order.shipping_phone || order.phone || localStorage.getItem("phone") || 'N/A'}</strong>
           </div>
         </div>
 
@@ -865,7 +861,6 @@ async function printCustomerInvoice(orderId) {
     </html>
   `);
   win.document.close();
-} catch (err) {}
 }
 
 // 8. Bulletproof Free WhatsApp Notification
