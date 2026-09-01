@@ -2,7 +2,7 @@ let allProducts = [];
 let cart = JSON.parse(localStorage.getItem("shailputri_cart") || "[]");
 let currentCreditLimit = 0;
 let currentDueBalance = 0;
-let loggedInUser = localStorage.getItem("username") || "";
+let loggedInUser = (localStorage.getItem("username") || "").replace(/^@/, '').trim();
 let loggedInBusiness = localStorage.getItem("businessName") || "";
 let activeModalProduct = null;
 let companyBulkConfig = { threshold: 10, discount: 1 };
@@ -314,8 +314,6 @@ function updateCartUI() {
     if (placeOrderBtn) placeOrderBtn.style.display = "none";
     if (shippingBox) shippingBox.style.display = "none";
     if (paymentBox) paymentBox.style.display = "none";
-    const qrBox = document.getElementById("upi-qr-box");
-    if (qrBox) qrBox.style.display = "none";
     return;
   }
 
@@ -371,19 +369,9 @@ function updateCartUI() {
     }
     if (paymentBox) paymentBox.style.display = "block";
   }
-
-  const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
-  const qrImage = document.getElementById("upi-qr-image");
-  if (qrImage) qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiLink)}`;
 }
 
-function togglePaymentUI() {
-  const mode = document.querySelector('input[name="paymentMethod"]:checked')?.value || "Online";
-  const qrBox = document.getElementById("upi-qr-box");
-  if (qrBox) qrBox.style.display = (mode === "Online" && cart.length > 0) ? "block" : "none";
-}
-
-// Trigger Online Checkout Modal or Instant COD/Credit
+// 4. Place Wholesale Order & Payment Gateway Trigger
 function placeOrder() {
   if (!loggedInUser) {
     alert("Please login to place wholesale orders!");
@@ -392,7 +380,7 @@ function placeOrder() {
   }
   if (cart.length === 0) return alert("Your cart is empty!");
 
-  const paymentMode = document.querySelector('input[name="paymentMethod"]:checked').value;
+  const paymentMode = document.querySelector('input[name="paymentMethod"]:checked')?.value || "Online";
   let total = 0;
   cart.forEach(item => {
     const effPrice = getEffectiveItemPrice(item);
@@ -404,25 +392,32 @@ function placeOrder() {
   }
 
   if (paymentMode === "Online") {
-    // Open Online Payment Gateway
-    document.getElementById("gateway-total-display").textContent = `₹${total.toLocaleString('en-IN')}`;
-    const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
-    document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiLink)}`;
-    document.getElementById("payment-gateway-modal").style.display = "flex";
+    const gatewayModal = document.getElementById("payment-gateway-modal");
+    if (gatewayModal) {
+      document.getElementById("gateway-total-display").textContent = `₹${total.toLocaleString('en-IN')}`;
+      const upiLink = `upi://pay?pa=${UPI_ID}&pn=Shailputri%20Agro&am=${total}&cu=INR`;
+      document.getElementById("gateway-upi-qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiLink)}`;
+      switchPaymentTab('upi');
+      gatewayModal.style.display = "flex";
+    }
   } else {
-    // Direct submit for COD or Credit
     executeFinalOrder(paymentMode);
   }
 }
 
 function closePaymentGateway() {
-  document.getElementById("payment-gateway-modal").style.display = "none";
+  const modal = document.getElementById("payment-gateway-modal");
+  if (modal) modal.style.display = "none";
 }
 
 function switchPaymentTab(tab) {
-  document.getElementById("pg-tab-upi").style.display = (tab === 'upi') ? 'block' : 'none';
-  document.getElementById("pg-tab-cards").style.display = (tab === 'cards') ? 'block' : 'none';
-  document.getElementById("pg-tab-netbanking").style.display = (tab === 'netbanking') ? 'block' : 'none';
+  const tabUpi = document.getElementById("pg-tab-upi");
+  const tabCards = document.getElementById("pg-tab-cards");
+  const tabNet = document.getElementById("pg-tab-netbanking");
+
+  if (tabUpi) tabUpi.style.display = (tab === 'upi') ? 'block' : 'none';
+  if (tabCards) tabCards.style.display = (tab === 'cards') ? 'block' : 'none';
+  if (tabNet) tabNet.style.display = (tab === 'netbanking') ? 'block' : 'none';
 }
 
 function simulatePaymentSuccess(method) {
@@ -430,7 +425,6 @@ function simulatePaymentSuccess(method) {
   executeFinalOrder(`Online (${method})`);
 }
 
-// Final Order API Submission
 async function executeFinalOrder(finalPaymentMode) {
   let total = 0;
   const orderedItems = [];
@@ -500,6 +494,7 @@ async function executeFinalOrder(finalPaymentMode) {
     alert("Server error while placing order.");
   }
 }
+
 // 5. Navigation
 function showSection(sectionId) {
   document.getElementById("catalog-section").style.display = (sectionId === 'catalog') ? 'block' : 'none';
@@ -527,7 +522,8 @@ async function loadLedgerOrders() {
   try {
     const res = await fetch('/api/orders');
     const orders = await res.json();
-    const userOrders = (orders || []).filter(o => (o.username || '').toLowerCase() === loggedInUser.toLowerCase());
+    const cleanUser = loggedInUser.replace(/^@/, '').toLowerCase();
+    const userOrders = (orders || []).filter(o => (o.username || '').replace(/^@/, '').toLowerCase() === cleanUser);
 
     const totalAmt = userOrders.reduce((sum, o) => o.status !== 'Cancelled' && o.status !== 'Returned' ? sum + o.total : sum, 0);
     document.getElementById('ledger-total-orders').textContent = userOrders.length;
@@ -626,7 +622,7 @@ async function printCustomerInvoice(orderId) {
     const isSameState = (sellerState === buyerState);
 
     const bulkThreshold = cfg.bulk_qty_threshold || 10;
-    const bulkExtraPercent = cfg.bulk_discount_percent !== undefined ? cfg.bulk_discount_percent : 1;
+    const bulkExtraPercent = cfg.bulk_discount_percent !== undefined ? cfg.bulk_discount_percent : 3;
 
     let rawItems = [];
     try { rawItems = JSON.parse(order.items); } catch(e) { rawItems = [{ name: 'Products', price: order.total }]; }
@@ -850,7 +846,7 @@ window.sendWhatsAppInvoice = async function(orderId) {
   }
 };
 
-// 9. Profile & Credit Repayment
+// 9. Profile Management
 function loadProfileForm() {
   if (!loggedInUser) return;
   document.getElementById("edit-username").value = loggedInUser;
@@ -924,6 +920,7 @@ window.autoFetchPincodeAddress = async function(pincode, targetAddressId, target
   }
 };
 
+// 10. Credit Ledger & Repayment
 window.openCreditLedgerModal = async function() {
   const modal = document.getElementById("credit-modal");
   if (!modal) return;
@@ -974,7 +971,8 @@ window.openCreditLedgerModal = async function() {
 
 window.closeCreditLedgerModal = function() {
   const modal = document.getElementById("credit-modal");
-  if (modal) modal.style.display = "none";
+  if (!modal) return;
+  modal.style.display = "none";
 };
 
 window.toggleRepaySection = function() {
@@ -1027,7 +1025,7 @@ window.submitCreditRepayment = async function() {
   }
 };
 
-// 10. Global Logout
+// 11. Global Logout
 window.logout = function() {
   localStorage.removeItem("username");
   localStorage.removeItem("businessName");
