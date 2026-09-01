@@ -97,7 +97,7 @@ db.prepare(`
   )
 `).run();
 
-// 4. Default Products with Automatic Upsert (No Duplicates)
+// 4. Default Products List (Clean Upsert)
 const defaultProducts = [
   { name: 'Sunrise Refined Sunflower Oil 1L', sku: 'SKU-2201', hsn: '1512', gst_rate: 5, price: 1380, stock: 350, category: 'Edible Oils', image_url: 'images/placeholder.png' },
   { name: 'Golden Wheat Atta 5kg', sku: 'SKU-1187', hsn: '1101', gst_rate: 5, price: 1650, stock: 100, category: 'Atta & Flour', image_url: 'images/placeholder.png' },
