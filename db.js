@@ -91,7 +91,7 @@ if (!existingConfig) {
   // Update logo if already exists
   db.prepare(`
     UPDATE company_settings 
-    SET logo_url = 'images/SAFPL.jpg', signatory_url = 'images/SAFPL.jpg' 
+    SET logo_url = 'images/logo.png', signatory_url = 'images/logo.jpg' 
     WHERE id = 1
   `).run();
 }
