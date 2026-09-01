@@ -90,17 +90,17 @@ db.prepare(`
   )
 `).run();
 
-// 2. Default Company Profile with Logo, Signature & Bank Info
+// 2. Default Company Profile with Distinct Logo, Signature Stamp & Bank Info
 const existingConfig = db.prepare('SELECT id FROM company_settings WHERE id = 1').get();
 if (!existingConfig) {
   db.prepare(`
     INSERT INTO company_settings (id, company_name, address, state, gstin, fssai, udyam, cin, phone, email, logo_url, signatory_url, bulk_qty_threshold, bulk_discount_percent, bank_name, bank_account_no, bank_ifsc, bank_branch)
-    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/SAFPL.jpg', 'images/SAFPL.jpg', 10, 3, 'State Bank of India', '423589123456', 'SBIN0001234', 'Purnia Main Branch')
+    VALUES (1, 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED', 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027', 'Assam', '18ABUCS6903N1Z5', '10424000001234', 'UDYAM-AS-25-0046796', 'U46201AS2026PTC031042', '8544241851', 'info@shailputriagro.com', 'images/logo.png', 'images/SAFPL.jpg', 10, 3, 'State Bank of India', '423589123456', 'SBIN0001234', 'Purnia Main Branch')
   `).run();
 } else {
   db.prepare(`
     UPDATE company_settings 
-    SET logo_url = 'images/SAFPL.jpg', signatory_url = 'images/SAFPL.jpg' 
+    SET logo_url = 'images/logo.png', signatory_url = 'images/SAFPL.jpg' 
     WHERE id = 1
   `).run();
 }
