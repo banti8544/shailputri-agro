@@ -716,6 +716,101 @@ app.get('/api/retailers/me', (req, res) => {
   }
 });
 
+// 9. Database Backup & Restore APIs
+const backupUpload = multer({ dest: path.join(__dirname, 'temp_backups/') });
+
+// A. Download Database File (.db)
+app.get('/api/admin/backup-db', (req, res) => {
+  const dbPath = path.join(__dirname, 'shailputri.db');
+  if (fs.existsSync(dbPath)) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    res.download(dbPath, `shailputri_backup_${timestamp}.db`);
+  } else {
+    res.status(404).send('Database file not found');
+  }
+});
+
+// B. Download Full JSON Backup (Orders, Retailers, Products, Settings)
+app.get('/api/admin/backup-json', (req, res) => {
+  try {
+    const products = db.prepare('SELECT * FROM products').all();
+    const retailers = db.prepare('SELECT * FROM retailers').all();
+    const orders = db.prepare('SELECT * FROM orders').all();
+    const settings = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
+    const repayments = db.prepare('SELECT * FROM credit_repayments').all();
+
+    const fullBackup = {
+      backup_date: new Date().toISOString(),
+      company_settings: settings,
+      products,
+      retailers,
+      orders,
+      credit_repayments: repayments
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    res.setHeader('Content-disposition', `attachment; filename=shailputri_data_${timestamp}.json`);
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(fullBackup, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate JSON backup' });
+  }
+});
+
+// C. Restore Database from JSON
+app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload a backup JSON file' });
+    }
+
+    const rawData = fs.readFileSync(req.file.path, 'utf-8');
+    const data = JSON.parse(rawData);
+
+    // Restore Products
+    if (Array.isArray(data.products)) {
+      db.prepare('DELETE FROM products').run();
+      const insertProd = db.prepare(`
+        INSERT INTO products (id, name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.products.forEach(p => {
+        insertProd.run(p.id, p.name, p.sku, p.pack || 'Standard', p.price, p.stock, p.category, p.image_url, p.hsn, p.gst_rate);
+      });
+    }
+
+    // Restore Retailers
+    if (Array.isArray(data.retailers)) {
+      db.prepare('DELETE FROM retailers').run();
+      const insertRet = db.prepare(`
+        INSERT INTO retailers (id, business_name, username, password_hash, phone, address, state, gstin, scheme_name, discount_percent, credit_limit)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.retailers.forEach(r => {
+        insertRet.run(r.id, r.business_name, r.username, r.password_hash, r.phone, r.address, r.state, r.gstin, r.scheme_name, r.discount_percent, r.credit_limit);
+      });
+    }
+
+    // Restore Orders
+    if (Array.isArray(data.orders)) {
+      db.prepare('DELETE FROM orders').run();
+      const insertOrd = db.prepare(`
+        INSERT INTO orders (id, items, total, created_at, status, username, payment_mode, payment_status, shipping_address, shipping_phone, shipping_state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.orders.forEach(o => {
+        insertOrd.run(o.id, o.items, o.total, o.created_at, o.status, o.username, o.payment_mode, o.payment_status, o.shipping_address, o.shipping_phone, o.shipping_state);
+      });
+    }
+
+    // Delete temp file
+    try { fs.unlinkSync(req.file.path); } catch(e){}
+
+    res.json({ success: true, message: 'Data restored successfully! All orders, products and dealers are back.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
+  }
+});
 // 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
