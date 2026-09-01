@@ -118,8 +118,7 @@
     </div>
 
     <div class="header-actions">
-      <div id="auth-header-slot">
-        </div>
+      <div id="auth-header-slot"></div>
       
       <button class="btn-cart" onclick="showSection('cart')">
         🛒 <span id="cart-nav-badge">Cart (0)</span>
@@ -282,6 +281,7 @@
     </div>
   </div>
 
+  <!-- Quick View Product Modal -->
   <div id="quickview-modal" class="qv-modal">
     <div class="qv-box">
       <button class="qv-close" onclick="closeQuickView()">✕</button>
@@ -333,6 +333,7 @@
     </div>
   </div>
 
+  <!-- Credit Statement Modal -->
   <div id="credit-modal" class="qv-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999;">
     <div class="qv-box" style="background: white; border-radius: 8px; padding: 1.5rem; width: 90%; max-width: 650px; display: block; max-height: 85vh; overflow-y: auto; position: relative;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--navy); padding-bottom: 0.5rem;">
@@ -380,66 +381,41 @@
     </div>
   </div>
 
-  <div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; justify-content: center; align-items: center;">
-    <div style="background: white; width: 92%; max-width: 460px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+  <!-- Smart UPI QR & Auto-Confirm Modal -->
+  <div id="payment-gateway-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="background: white; width: 92%; max-width: 440px; border-radius: 8px; padding: 1.5rem; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;">
+      
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #102a43; padding-bottom: 8px;">
-        <h3 style="margin: 0; color: #102a43;">💳 Shailputri Secure Checkout</h3>
+        <h3 style="margin: 0; color: #102a43; font-size: 1.1rem;">⚡ Fast UPI Instant Checkout</h3>
         <button onclick="closePaymentGateway()" style="background: #cbd5e1; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">✕</button>
       </div>
 
-      <div style="text-align: center; margin: 12px 0;">
-        <div style="font-size: 0.9rem; color: #64748b;">Payable Order Amount:</div>
+      <div style="margin: 10px 0;">
+        <div style="font-size: 0.85rem; color: #64748b;">कुल भुगतान राशि:</div>
         <div id="gateway-total-display" style="font-size: 1.6rem; font-weight: bold; color: #15803d;">₹0</div>
       </div>
 
-      <div style="display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
-        <button class="pg-tab" onclick="switchPaymentTab('upi')" style="flex:1; padding: 6px; background:#102a43; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">UPI / QR</button>
-        <button class="pg-tab" onclick="switchPaymentTab('cards')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Debit/Credit Card</button>
-        <button class="pg-tab" onclick="switchPaymentTab('netbanking')" style="flex:1; padding: 6px; background:#e2e8f0; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Net Banking</button>
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; display: inline-block;">
+        <img id="gateway-upi-qr" src="" alt="Dynamic QR" style="width: 170px; height: 170px; display: block; margin: 0 auto;">
+        <small style="color: #64748b; font-size: 0.75rem; display: block; margin-top: 4px;">GPay | PhonePe | Paytm | BHIM</small>
       </div>
 
-      <div id="pg-tab-upi" style="text-align: center;">
-        <p style="font-size: 0.85rem; color: #334155; margin: 4px 0;">Scan QR with <strong>GPay, PhonePe, Paytm, BHIM</strong></p>
-        <img id="gateway-upi-qr" src="" alt="UPI QR" style="width: 160px; height: 160px; border: 1px solid #cbd5e1; border-radius: 6px; margin: 6px 0;">
-        <br>
-        <button onclick="simulatePaymentSuccess('UPI/QR')" style="margin-top: 10px; width: 100%; background: #137333; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-          ✅ Paid via UPI / Confirm Order
-        </button>
-      </div>
-
-      <div id="pg-tab-cards" style="display: none;">
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
-          <label>Card Number
-            <input type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-          </label>
-          <div style="display: flex; gap: 8px;">
-            <label style="flex: 1;">Expiry (MM/YY)
-              <input type="text" placeholder="12/28" maxlength="5" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-            </label>
-            <label style="width: 80px;">CVV
-              <input type="password" placeholder="•••" maxlength="3" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-            </label>
-          </div>
-          <button onclick="simulatePaymentSuccess('Debit/Credit Card')" style="margin-top: 10px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-            Pay & Confirm Order
-          </button>
+      <div style="margin: 12px 0 6px 0;">
+        <span style="font-size: 0.85rem; color: #475569;">ऑटो-वेरिफिकेशन टाइमर: </span>
+        <strong id="qr-timer" style="color: #c5221f; font-size: 1rem;">15s</strong>
+        <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
+          <div id="qr-progress-bar" style="width: 100%; height: 100%; background: #15803d; transition: width 1s linear;"></div>
         </div>
       </div>
 
-      <div id="pg-tab-netbanking" style="display: none; font-size: 0.85rem;">
-        <label>Select Your Bank:
-          <select style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
-            <option>State Bank of India (SBI)</option>
-            <option>HDFC Bank</option>
-            <option>ICICI Bank</option>
-            <option>Axis Bank</option>
-            <option>Punjab National Bank</option>
-          </select>
-        </label>
-        <button onclick="simulatePaymentSuccess('Net Banking')" style="margin-top: 15px; width: 100%; background: #102a43; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-          Proceed to Bank & Place Order
-        </button>
+      <div style="text-align: left; margin-top: 10px;">
+        <label style="font-size: 0.8rem; font-weight: bold; color: #334155;">UPI Ref / UTR No. (वैकल्पिक):</label>
+        <input type="text" id="upi-utr-input" placeholder="उदा. 4235XXXXXXXX (12 अंक)" maxlength="12" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 0.85rem; margin-top: 2px;">
       </div>
+
+      <button onclick="confirmAutoPayment()" style="margin-top: 12px; width: 100%; background: #15803d; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+        ✅ भुगतान पूरा हुआ (Confirm Order)
+      </button>
     </div>
   </div>
 
