@@ -134,6 +134,7 @@ function renderProducts(products) {
     const badgeHtml = discountAmount > 0 ? `<div class="badge-discount">-₹${discountAmount}</div>` : '';
     let rawImg = p.imageUrl || 'images/placeholder.png';
     let cleanImg = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
+    const unitText = p.unit || 'case';
 
     return `
       <div class="product-card">
@@ -147,7 +148,7 @@ function renderProducts(products) {
           <h4 title="${p.name}">${p.name}</h4>
           <div class="price-row">
             ${(p.originalPrice && p.originalPrice > p.price) ? `<span class="orig-price">₹${p.originalPrice}</span>` : ''}
-            <span class="final-price">₹${p.price}</span> <small style="font-size:0.75rem; color:#64748b;">/ case</small>
+            <span class="final-price">₹${p.price}</span> <small style="font-size:0.75rem; color:#64748b;">/ ${unitText}</small>
           </div>
           <button class="btn-add-cart" onclick="addToCartDirect(${p.id})">Add to cart</button>
         </div>
@@ -162,7 +163,7 @@ function filterProducts() {
   renderProducts(filtered);
 }
 
-// 2. Quick View Modal (Fixed GST Parsing)
+// 2. Quick View Modal
 function openQuickView(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item) return;
@@ -174,15 +175,14 @@ function openQuickView(productId) {
   let cleanImg = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
   document.getElementById("qv-img").src = cleanImg;
 
-  // Clean GST Parsing (never 500%)
   let finalGst = 5;
   if (item.gst_rate !== undefined && item.gst_rate !== null) {
     let parsed = parseInt(String(item.gst_rate).replace(/[^0-9]/g, ''), 10);
-    if (parsed === 500) parsed = 5; // Clean rogue 500% bug
+    if (parsed > 100) parsed = Math.round(parsed / 100);
     finalGst = isNaN(parsed) ? 5 : parsed;
   }
 
-  document.getElementById("qv-meta").textContent = `SKU: ${item.sku} | HSN: ${item.hsn || '1006'} | GST: ${finalGst}% | Category: ${item.category}`;
+  document.getElementById("qv-meta").textContent = `SKU: ${item.sku} | HSN: ${item.hsn || '1006'} | GST: ${finalGst}% | Unit: ${item.unit || 'Pcs.'} | Category: ${item.category}`;
 
   const discountAmount = Math.max(0, (item.originalPrice || item.price) - item.price);
   const qvBadge = document.getElementById("qv-badge");
@@ -202,8 +202,8 @@ function openQuickView(productId) {
   const t2Row = document.querySelector(".tier-table tbody tr:nth-child(2) td:nth-child(1)");
   const t2Disc = document.querySelector(".tier-table tbody tr:nth-child(2) td:nth-child(2)");
 
-  if (t1Row) t1Row.textContent = `1 - ${bulkQty - 1} cases`;
-  if (t2Row) t2Row.textContent = `${bulkQty}+ cases (Bulk)`;
+  if (t1Row) t1Row.textContent = `1 - ${bulkQty - 1} ${item.unit || 'cases'}`;
+  if (t2Row) t2Row.textContent = `${bulkQty}+ ${item.unit || 'cases'} (Bulk)`;
   if (t2Disc) t2Disc.textContent = `Extra ${bulkDiscPercent}%`;
 
   document.getElementById("qv-tier1-price").textContent = `₹${item.price}`;
@@ -244,20 +244,23 @@ function pushToCart(item, qty) {
   const maxStock = item.stock !== undefined ? item.stock : 9999;
 
   if (currentInCart + qty > maxStock) {
-    alert(`Cannot add ${qty} case(s)! Only ${maxStock} case(s) in stock (Already in cart: ${currentInCart}).`);
+    alert(`Cannot add ${qty} ${item.unit || 'case(s)'}! Only ${maxStock} in stock (Already in cart: ${currentInCart}).`);
     return;
   }
 
   let itemGSTRate = 5;
   if (item.gst_rate !== undefined && item.gst_rate !== null) {
     let parsed = parseInt(String(item.gst_rate).replace(/[^0-9]/g, ''), 10);
-    if (parsed === 500) parsed = 5;
+    if (parsed > 100) parsed = Math.round(parsed / 100);
     itemGSTRate = isNaN(parsed) ? 5 : parsed;
   }
+
+  const itemUnit = item.unit || 'Pcs.';
 
   if (existing) {
     existing.qty += qty;
     existing.gst_rate = itemGSTRate;
+    existing.unit = itemUnit;
     existing.hsn = item.hsn || existing.hsn || '1006';
   } else {
     cart.push({
@@ -269,6 +272,7 @@ function pushToCart(item, qty) {
       sku: item.sku,
       hsn: item.hsn || '1006',
       gst_rate: itemGSTRate,
+      unit: itemUnit,
       qty: qty,
       stock: maxStock
     });
@@ -290,7 +294,7 @@ function changeQty(index, delta) {
   if (newQty <= 0) {
     cart.splice(index, 1);
   } else if (newQty > availableStock) {
-    alert(`Cannot exceed available stock! Only ${availableStock} case(s) available.`);
+    alert(`Cannot exceed available stock! Only ${availableStock} ${item.unit || 'case(s)'} available.`);
     return;
   } else {
     item.qty = newQty;
@@ -349,14 +353,14 @@ function updateCartUI() {
     total += subtotal;
 
     const isBulkApplied = item.qty >= (companyBulkConfig.threshold || 10);
-    const itemGst = item.gst_rate === 500 ? 5 : (item.gst_rate ?? 5);
+    const itemGst = item.gst_rate > 100 ? Math.round(item.gst_rate / 100) : (item.gst_rate ?? 5);
 
     return `
       <div style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 0; border-bottom:1px solid #e2e8f0;">
         <div style="flex:1;">
           <strong style="color:#102a43;">${item.name}</strong><br>
           <small style="color:#64748b;">
-            MRP: <s>₹${item.originalPrice || item.price}</s> | Effective: <strong>₹${effectivePrice}</strong> / case (GST: ${itemGst}%)
+            MRP: <s>₹${item.originalPrice || item.price}</s> | Effective: <strong>₹${effectivePrice}</strong> / ${item.unit || 'case'} (GST: ${itemGst}%)
             ${isBulkApplied ? `<span style="color:#15803d; font-weight:bold; margin-left:4px;">(Bulk ${companyBulkConfig.discount}% Off Applied)</span>` : ''}
           </small>
         </div>
@@ -484,6 +488,8 @@ async function executeFinalOrder(finalPaymentMode) {
     const effPrice = getEffectiveItemPrice(item);
     total += (effPrice * item.qty);
     for (let i = 0; i < item.qty; i++) {
+      let rawGst = item.gst_rate;
+      if (rawGst > 100) rawGst = Math.round(rawGst / 100);
       orderedItems.push({
         id: item.id,
         name: item.name,
@@ -491,7 +497,8 @@ async function executeFinalOrder(finalPaymentMode) {
         price: effPrice,
         sku: item.sku,
         hsn: item.hsn || '1006',
-        gst_rate: item.gst_rate === 500 ? 5 : (item.gst_rate ?? 5)
+        unit: item.unit || 'Pcs.',
+        gst_rate: rawGst || 5
       });
     }
   });
@@ -663,7 +670,7 @@ window.returnCustomerOrder = async function(orderId) {
   }
 };
 
-// 7. Master Customer/Dealer Invoice Generator
+// 7. Master Customer/Dealer Invoice Generator (With Qty Unit)
 async function printCustomerInvoice(orderId) {
   let order = null;
   try {
@@ -716,7 +723,7 @@ async function printCustomerInvoice(orderId) {
 
   Object.values(grouped).forEach((item, idx) => {
     let gstRate = item.gst_rate;
-    if (gstRate === 500) gstRate = 5;
+    if (gstRate > 100) gstRate = Math.round(gstRate / 100);
     gstRate = gstRate || 5;
 
     const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
@@ -754,7 +761,7 @@ async function printCustomerInvoice(orderId) {
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1512'}</td>
-        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty} ${item.unit || 'Pcs.'}</strong></td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
@@ -789,7 +796,7 @@ async function printCustomerInvoice(orderId) {
       </head>
       <body>
         <div class="header-container">
-          <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='/images/placeholder.png'">
+          <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='images/placeholder.png'">
           <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px; letter-spacing: 0.5px;">${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
           <p style="margin: 2px 0; font-size: 12px; color: #334155; font-weight: 500;">${config.address || 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027'}</p>
           <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;">
@@ -829,7 +836,7 @@ async function printCustomerInvoice(orderId) {
               <th style="width: 4%;">#</th>
               <th>Item Description</th>
               <th style="width: 8%;">HSN</th>
-              <th style="width: 6%; text-align: center;">Qty</th>
+              <th style="width: 10%; text-align: center;">Qty (Unit)</th>
               <th style="width: 10%; text-align: right;">MRP (₹)</th>
               <th style="width: 10%; text-align: right;">Disc (₹)</th>
               <th style="width: 12%; text-align: right;">Taxable (₹)</th>
@@ -911,9 +918,11 @@ window.sendWhatsAppInvoice = async function(orderId) {
       const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
       const grouped = {};
       items.forEach(i => {
-        grouped[i.name] = (grouped[i.name] || 0) + 1;
+        const u = i.unit || 'case(s)';
+        if (!grouped[i.name]) grouped[i.name] = { qty: 0, unit: u };
+        grouped[i.name].qty += 1;
       });
-      itemsList = Object.entries(grouped).map(([name, qty]) => `• ${name} x ${qty} case(s)`).join('\n');
+      itemsList = Object.entries(grouped).map(([name, d]) => `• ${name} x ${d.qty} ${d.unit}`).join('\n');
     } catch (e) {}
 
     const textMessage = 
