@@ -811,6 +811,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
   }
 });
+
 // BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Image Auto-Update)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
@@ -823,48 +824,48 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     return res.status(400).json({ success: false, message: "No items provided" });
   }
 
-  const findStmt = db.prepare('SELECT id, price, category, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
-  
-  const updateStmt = db.prepare(`
-    UPDATE products 
-    SET stock = ?, 
-        price = CASE WHEN ? > 0 THEN ? ELSE price END,
-        category = CASE WHEN ? != '' THEN ? ELSE category END,
-        image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
-    WHERE id = ?
-  `);
-
-  const insertStmt = db.prepare(`
-    INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-    VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, '1006', 5)
-  `);
-
-  let updated = 0;
-  let inserted = 0;
-
-  const runTransaction = db.transaction((list) => {
-    for (const item of list) {
-      const cleanName = (item.name || '').trim();
-      const cleanSku = (item.sku || cleanName).trim();
-      const stockQty = parseInt(item.stock) || 0;
-      const priceVal = parseInt(item.price) || 0;
-      const categoryVal = (item.category || 'Agro Commodities').trim();
-      const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
-
-      if (!cleanName) continue;
-
-      const existing = findStmt.get(cleanSku, cleanName);
-      if (existing) {
-        updateStmt.run(stockQty, priceVal, priceVal, categoryVal, categoryVal, imgVal, imgVal, existing.id);
-        updated++;
-      } else {
-        insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, categoryVal, imgVal);
-        inserted++;
-      }
-    }
-  });
-
   try {
+    const findStmt = db.prepare('SELECT id, price, category, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+    
+    const updateStmt = db.prepare(`
+      UPDATE products 
+      SET stock = ?, 
+          price = CASE WHEN ? > 0 THEN ? ELSE price END,
+          category = CASE WHEN ? != '' THEN ? ELSE category END,
+          image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
+      WHERE id = ?
+    `);
+
+    const insertStmt = db.prepare(`
+      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
+      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, '1006', 5)
+    `);
+
+    let updated = 0;
+    let inserted = 0;
+
+    const runTransaction = db.transaction((list) => {
+      for (const item of list) {
+        const cleanName = (item.name || '').trim();
+        const cleanSku = (item.sku || cleanName).trim();
+        const stockQty = parseInt(item.stock) || 0;
+        const priceVal = parseInt(item.price) || 0;
+        const categoryVal = (item.category || 'Agro Commodities').trim();
+        const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
+
+        if (!cleanName) continue;
+
+        const existing = findStmt.get(cleanSku, cleanName);
+        if (existing) {
+          updateStmt.run(stockQty, priceVal, priceVal, categoryVal, categoryVal, imgVal, imgVal, existing.id);
+          updated++;
+        } else {
+          insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, categoryVal, imgVal);
+          inserted++;
+        }
+      }
+    });
+
     runTransaction(items);
     res.json({ 
       success: true, 
@@ -874,55 +875,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-  
-  // Update stock, price and image_url (if provided and not placeholder)
-  const updateStmt = db.prepare(`
-    UPDATE products 
-    SET stock = ?, 
-        price = CASE WHEN ? > 0 THEN ? ELSE price END,
-        image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
-    WHERE id = ?
-  `);
 
-  const insertStmt = db.prepare(`
-    INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-    VALUES (?, ?, 'Bulk / Bag', ?, ?, 'Agro Commodities', ?, '1006', 5)
-  `);
-
-  let updated = 0;
-  let inserted = 0;
-
-  const runTransaction = db.transaction((list) => {
-    for (const item of list) {
-      const cleanName = (item.name || '').trim();
-      const cleanSku = (item.sku || cleanName).trim();
-      const stockQty = parseInt(item.stock) || 0;
-      const priceVal = parseInt(item.price) || 0;
-      const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
-
-      if (!cleanName) continue;
-
-      const existing = findStmt.get(cleanSku, cleanName);
-      if (existing) {
-        updateStmt.run(stockQty, priceVal, priceVal, imgVal, imgVal, imgVal, existing.id);
-        updated++;
-      } else {
-        insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, imgVal);
-        inserted++;
-      }
-    }
-  });
-
-  try {
-    runTransaction(items);
-    res.json({ 
-      success: true, 
-      message: `Successfully synced! (Updated: ${updated}, Auto-Added: ${inserted})` 
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 // BUSY Order Export in Excel-ready format (Accurate Schema Match)
 app.get('/api/busy/export-orders', (req, res) => {
   const secretKey = req.query.key;
@@ -938,11 +891,10 @@ app.get('/api/busy/export-orders', (req, res) => {
       return res.status(404).send("No active orders found to export.");
     }
 
-    // BUSY Sales Order Standard CSV Format
     let csv = "Order No,Date,Party Name,Item Name,Qty,Unit,Price,Total Amount\n";
 
     rawOrders.forEach(order => {
-      const orderDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-GB'); // DD-MM-YYYY
+      const orderDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-GB');
       const cleanOrderUser = (order.username || '').replace(/^@/, '').toLowerCase();
       const uMatch = retailers.find(r => (r.username || '').replace(/^@/, '').toLowerCase() === cleanOrderUser);
       
@@ -955,7 +907,6 @@ app.get('/api/busy/export-orders', (req, res) => {
         parsedItems = [];
       }
 
-      // Group items by name to aggregate quantities
       const itemSummary = {};
       parsedItems.forEach(it => {
         const iName = (it.name || 'Agro Item').replace(/,/g, ' ');
@@ -966,7 +917,6 @@ app.get('/api/busy/export-orders', (req, res) => {
         itemSummary[iName].qty += 1;
       });
 
-      // Write each item row for BUSY Sales Order
       for (const [name, data] of Object.entries(itemSummary)) {
         const lineTotal = data.qty * data.price;
         csv += `${order.id},${orderDate},"${party}","${name}",${data.qty},Case,${data.price},${lineTotal}\n`;
@@ -982,6 +932,7 @@ app.get('/api/busy/export-orders', (req, res) => {
     res.status(500).send("Error exporting orders: " + err.message);
   }
 });
+
 // Clear All Orders Endpoint
 app.get('/api/admin/clear-orders', (req, res) => {
   const secretKey = req.query.key;
@@ -996,6 +947,7 @@ app.get('/api/admin/clear-orders', (req, res) => {
     res.status(500).send("Error clearing orders: " + err.message);
   }
 });
+
 // 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
