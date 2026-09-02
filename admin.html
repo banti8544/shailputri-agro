@@ -553,10 +553,12 @@
         let rawImg = p.imageUrl || p.image_url || 'images/placeholder.png';
         let imgPath = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
 
-        // GST rate parsing (default to 5 if undefined)
+        // Safe GST rate parsing (handles 500, 1800, etc.)
         let currentGst = 5;
         if (p.gst_rate !== undefined && p.gst_rate !== null) {
-          currentGst = parseInt(p.gst_rate, 10);
+          let parsed = parseInt(p.gst_rate, 10);
+          if (parsed > 100) parsed = Math.round(parsed / 100);
+          currentGst = isNaN(parsed) ? 5 : parsed;
         }
 
         return `
@@ -879,6 +881,7 @@
       loadRetailers();
     }
 
+    // 6. Master Invoice Generator (With Qty Unit)
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -907,7 +910,10 @@
       let rowsHtml = '';
 
       Object.values(grouped).forEach((item, idx) => {
-        const gstRate = item.gst_rate || 5;
+        let gstRate = item.gst_rate;
+        if (gstRate > 100) gstRate = Math.round(gstRate / 100);
+        gstRate = gstRate || 5;
+
         const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
 
         let finalPricePerUnit = item.price;
@@ -943,7 +949,7 @@
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1512'}</td>
-            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty} ${item.unit || 'Pcs.'}</strong></td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
@@ -1013,7 +1019,7 @@
                   <th style="width: 4%;">#</th>
                   <th>Item Description</th>
                   <th style="width: 8%;">HSN</th>
-                  <th style="width: 6%; text-align: center;">Qty</th>
+                  <th style="width: 10%; text-align: center;">Qty (Unit)</th>
                   <th style="width: 10%; text-align: right;">MRP (₹)</th>
                   <th style="width: 10%; text-align: right;">Disc (₹)</th>
                   <th style="width: 12%; text-align: right;">Taxable (₹)</th>
