@@ -863,6 +863,65 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+// BUSY Order Export in Excel-ready format (Accurate Schema Match)
+app.get('/api/busy/export-orders', (req, res) => {
+  const secretKey = req.query.key;
+  if (secretKey !== "Shailputri@BusySync2026") {
+    return res.status(401).send("Unauthorized: Invalid Secret Key");
+  }
+
+  try {
+    const rawOrders = db.prepare("SELECT * FROM orders WHERE status != 'Cancelled' ORDER BY id DESC").all() || [];
+    const retailers = db.prepare("SELECT * FROM retailers").all() || [];
+
+    if (rawOrders.length === 0) {
+      return res.status(404).send("No active orders found to export.");
+    }
+
+    // BUSY Sales Order Standard CSV Format
+    let csv = "Order No,Date,Party Name,Item Name,Qty,Unit,Price,Total Amount\n";
+
+    rawOrders.forEach(order => {
+      const orderDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-GB'); // DD-MM-YYYY
+      const cleanOrderUser = (order.username || '').replace(/^@/, '').toLowerCase();
+      const uMatch = retailers.find(r => (r.username || '').replace(/^@/, '').toLowerCase() === cleanOrderUser);
+      
+      const party = (uMatch ? uMatch.business_name : (order.username || 'Cash Dealer')).replace(/,/g, ' ');
+
+      let parsedItems = [];
+      try {
+        parsedItems = JSON.parse(order.items || '[]');
+      } catch (e) {
+        parsedItems = [];
+      }
+
+      // Group items by name to aggregate quantities
+      const itemSummary = {};
+      parsedItems.forEach(it => {
+        const iName = (it.name || 'Agro Item').replace(/,/g, ' ');
+        const iPrice = Number(it.price) || 0;
+        if (!itemSummary[iName]) {
+          itemSummary[iName] = { qty: 0, price: iPrice };
+        }
+        itemSummary[iName].qty += 1;
+      });
+
+      // Write each item row for BUSY Sales Order
+      for (const [name, data] of Object.entries(itemSummary)) {
+        const lineTotal = data.qty * data.price;
+        csv += `${order.id},${orderDate},"${party}","${name}",${data.qty},Case,${data.price},${lineTotal}\n`;
+      }
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=BUSY_Sales_Orders.csv');
+    return res.status(200).send(csv);
+
+  } catch (err) {
+    console.error("Order Export Error:", err);
+    res.status(500).send("Error exporting orders: " + err.message);
+  }
+});
 // 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
