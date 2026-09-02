@@ -66,11 +66,12 @@ async function syncUserProfile() {
   } catch (e) {}
 }
 
-// 1. Load Products & Category Sidebar
-async function loadProducts() {
+// 1. Load Products & Category Sidebar (With Auto-Retry for Render wake-up)
+async function loadProducts(retryCount = 0) {
   const container = document.getElementById("catalog-grid-container");
   try {
     const response = await fetch('/api/products' + (loggedInUser ? '?username=' + encodeURIComponent(loggedInUser) : ''));
+    if (!response.ok) throw new Error("Server not ready");
     const data = await response.json();
     allProducts = data.products || [];
     currentCreditLimit = data.creditLimit || 0;
@@ -84,7 +85,11 @@ async function loadProducts() {
     renderProducts(allProducts);
     renderAuthHeader();
   } catch (err) {
-    if (container) container.innerHTML = "<p style='color:red;'>Could not load products.</p>";
+    if (retryCount < 3) {
+      setTimeout(() => loadProducts(retryCount + 1), 2000);
+    } else if (container) {
+      container.innerHTML = "<p style='color:red;'>Could not load products. Please refresh.</p>";
+    }
   }
 }
 
@@ -127,12 +132,14 @@ function renderProducts(products) {
   container.innerHTML = products.map(p => {
     const discountAmount = Math.max(0, (p.originalPrice || p.price) - p.price);
     const badgeHtml = discountAmount > 0 ? `<div class="badge-discount">-₹${discountAmount}</div>` : '';
+    let rawImg = p.imageUrl || 'images/placeholder.png';
+    let cleanImg = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
 
     return `
       <div class="product-card">
         ${badgeHtml}
         <div class="img-wrap">
-          <img src="${p.imageUrl || 'images/placeholder.png'}" alt="${p.name}" onerror="this.src='images/placeholder.png'">
+          <img src="${cleanImg}" alt="${p.name}" onerror="this.onerror=null; this.src='/images/placeholder.png';">
           <button class="btn-quickview" onclick="openQuickView(${p.id})">Quick View</button>
         </div>
 
@@ -155,15 +162,27 @@ function filterProducts() {
   renderProducts(filtered);
 }
 
-// 2. Quick View Modal
+// 2. Quick View Modal (Fixed GST Parsing)
 function openQuickView(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item) return;
 
   activeModalProduct = item;
   document.getElementById("qv-name").textContent = item.name;
-  document.getElementById("qv-img").src = item.imageUrl || 'images/placeholder.png';
-  document.getElementById("qv-meta").textContent = `SKU: ${item.sku} | HSN: ${item.hsn || '1006'} | GST: ${item.gst_rate ?? 5}% | Category: ${item.category}`;
+
+  let rawImg = item.imageUrl || 'images/placeholder.png';
+  let cleanImg = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
+  document.getElementById("qv-img").src = cleanImg;
+
+  // Clean GST Parsing (never 500%)
+  let finalGst = 5;
+  if (item.gst_rate !== undefined && item.gst_rate !== null) {
+    let parsed = parseInt(String(item.gst_rate).replace(/[^0-9]/g, ''), 10);
+    if (parsed === 500) parsed = 5; // Clean rogue 500% bug
+    finalGst = isNaN(parsed) ? 5 : parsed;
+  }
+
+  document.getElementById("qv-meta").textContent = `SKU: ${item.sku} | HSN: ${item.hsn || '1006'} | GST: ${finalGst}% | Category: ${item.category}`;
 
   const discountAmount = Math.max(0, (item.originalPrice || item.price) - item.price);
   const qvBadge = document.getElementById("qv-badge");
@@ -229,7 +248,12 @@ function pushToCart(item, qty) {
     return;
   }
 
-  const itemGSTRate = (item.gst_rate !== undefined && item.gst_rate !== null) ? Number(item.gst_rate) : 5;
+  let itemGSTRate = 5;
+  if (item.gst_rate !== undefined && item.gst_rate !== null) {
+    let parsed = parseInt(String(item.gst_rate).replace(/[^0-9]/g, ''), 10);
+    if (parsed === 500) parsed = 5;
+    itemGSTRate = isNaN(parsed) ? 5 : parsed;
+  }
 
   if (existing) {
     existing.qty += qty;
@@ -325,13 +349,14 @@ function updateCartUI() {
     total += subtotal;
 
     const isBulkApplied = item.qty >= (companyBulkConfig.threshold || 10);
+    const itemGst = item.gst_rate === 500 ? 5 : (item.gst_rate ?? 5);
 
     return `
       <div style="display:flex; justify-content:space-between; align-items:center; padding:0.8rem 0; border-bottom:1px solid #e2e8f0;">
         <div style="flex:1;">
           <strong style="color:#102a43;">${item.name}</strong><br>
           <small style="color:#64748b;">
-            MRP: <s>₹${item.originalPrice || item.price}</s> | Effective: <strong>₹${effectivePrice}</strong> / case (GST: ${item.gst_rate ?? 5}%)
+            MRP: <s>₹${item.originalPrice || item.price}</s> | Effective: <strong>₹${effectivePrice}</strong> / case (GST: ${itemGst}%)
             ${isBulkApplied ? `<span style="color:#15803d; font-weight:bold; margin-left:4px;">(Bulk ${companyBulkConfig.discount}% Off Applied)</span>` : ''}
           </small>
         </div>
@@ -466,7 +491,7 @@ async function executeFinalOrder(finalPaymentMode) {
         price: effPrice,
         sku: item.sku,
         hsn: item.hsn || '1006',
-        gst_rate: (item.gst_rate !== undefined && item.gst_rate !== null) ? Number(item.gst_rate) : 5
+        gst_rate: item.gst_rate === 500 ? 5 : (item.gst_rate ?? 5)
       });
     }
   });
@@ -690,7 +715,10 @@ async function printCustomerInvoice(orderId) {
   let rowsHtml = '';
 
   Object.values(grouped).forEach((item, idx) => {
-    const gstRate = item.gst_rate || 5;
+    let gstRate = item.gst_rate;
+    if (gstRate === 500) gstRate = 5;
+    gstRate = gstRate || 5;
+
     const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
 
     let finalPricePerUnit = item.price;
@@ -761,7 +789,7 @@ async function printCustomerInvoice(orderId) {
       </head>
       <body>
         <div class="header-container">
-          <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='images/placeholder.png'">
+          <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='/images/placeholder.png'">
           <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px; letter-spacing: 0.5px;">${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
           <p style="margin: 2px 0; font-size: 12px; color: #334155; font-weight: 500;">${config.address || 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027'}</p>
           <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;">
@@ -813,7 +841,6 @@ async function printCustomerInvoice(orderId) {
         </table>
 
         <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
-          <!-- Bank Details on Dealer Invoice -->
           <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
             <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
             Bank Name: <strong>${config.bank_name || 'State Bank of India'}</strong><br>
@@ -822,7 +849,6 @@ async function printCustomerInvoice(orderId) {
             Branch: <strong>${config.bank_branch || 'Purnia Main Branch'}</strong>
           </div>
 
-          <!-- Total Calculations -->
           <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
             <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
             <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
@@ -844,13 +870,13 @@ async function printCustomerInvoice(orderId) {
         </div>
 
         <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-  <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-  <div style="text-align: center;">
-    <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
-    <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
-    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
-  </div>
-</div>
+          <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
+          <div style="text-align: center;">
+            <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
+            <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
+            <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
+          </div>
+        </div>
 
         <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
           <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
