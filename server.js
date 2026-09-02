@@ -932,6 +932,20 @@ app.get('/api/busy/export-orders', (req, res) => {
     res.status(500).send("Error exporting orders: " + err.message);
   }
 });
+// Clear All Orders Endpoint
+app.get('/api/admin/clear-orders', (req, res) => {
+  const secretKey = req.query.key;
+  if (secretKey !== "Shailputri@BusySync2026") {
+    return res.status(401).send("Unauthorized");
+  }
+
+  try {
+    db.prepare('DELETE FROM orders').run();
+    res.send("All orders have been successfully cleared/deleted.");
+  } catch (err) {
+    res.status(500).send("Error clearing orders: " + err.message);
+  }
+});
 // 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
