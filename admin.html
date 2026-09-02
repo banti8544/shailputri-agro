@@ -380,7 +380,6 @@
       window.location.reload();
     }
 
-    // Backup Restore Execution
     async function restoreBackupFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -416,7 +415,6 @@
       }
     }
 
-    // 1. Company Settings
     async function loadCompanySettings() {
       const res = await fetch('/api/company-settings');
       companyConfig = await res.json();
@@ -473,7 +471,6 @@
       loadCompanySettings();
     }
 
-    // 2. Categories Management
     function refreshCategoriesUI(products) {
       const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
       if (!categories.includes('General')) categories.unshift('General');
@@ -513,7 +510,6 @@
       alert(`Category "${catName}" added!`);
     }
 
-    // 3. Products Management
     async function loadAdminProducts() {
       const res = await fetch('/api/products');
       const data = await res.json();
@@ -542,7 +538,7 @@
         return `
           <tr id="row-${p.id}">
             <td>${p.id}</td>
-            <td><strong>${p.name}</strong></td>
+            <td><strong id="name-${p.id}">${p.name}</strong></td>
             <td><input type="text" id="cat-${p.id}" value="${p.category || 'General'}" style="width: 90px;"></td>
             <td><input type="text" id="hsn-${p.id}" value="${p.hsn || '1006'}" style="width: 70px;"></td>
             <td>
@@ -562,7 +558,7 @@
               </div>
             </td>
             <td>
-              <button type="button" id="save-btn-${p.id}" class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Save</button>
+              <button type="button" id="save-btn-${p.id}" class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id})">Save</button>
               <button type="button" class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
             </td>
           </tr>
@@ -582,13 +578,15 @@
       }
     }
 
-    async function saveProductRow(id, name) {
+    async function saveProductRow(id) {
       const btn = document.getElementById(`save-btn-${id}`);
       if (btn) {
         btn.disabled = true;
         btn.textContent = "⏳ Saving...";
       }
 
+      const nameElem = document.getElementById(`name-${id}`);
+      const name = nameElem ? nameElem.innerText.trim() : '';
       const price = document.getElementById(`price-${id}`).value;
       const stock = document.getElementById(`stock-${id}`).value;
       const hsn = document.getElementById(`hsn-${id}`).value;
@@ -609,20 +607,20 @@
       }
 
       try {
-        const res = await fetch(`/api/products/${id}`, {
-          method: 'PUT',
+        const res = await fetch(`/api/products/${id}/update-with-image`, {
+          method: 'POST',
           body: formData
         });
         const result = await res.json();
         if (result.success) {
-          alert('✅ Product & Image updated & committed to GitHub successfully!');
+          alert('✅ Product & Image updated successfully!');
           loadAdminProducts();
         } else {
-          alert('❌ Error: ' + (result.message || result.error || 'Failed to update'));
+          alert('❌ Error: ' + (result.message || 'Failed to update'));
         }
       } catch (err) {
         console.error(err);
-        alert('❌ Failed to save changes.');
+        alert('❌ Failed to save changes: ' + err.message);
       } finally {
         if (btn) {
           btn.disabled = false;
@@ -684,7 +682,6 @@
       loadAdminProducts();
     }
 
-    // 4. Orders Management
     async function fetchOrders() {
       const res = await fetch('/api/orders');
       globalOrders = await res.json();
@@ -794,7 +791,6 @@
       }
     }
 
-    // 5. Dealer Management
     async function loadRetailers() {
       const res = await fetch('/api/retailers');
       globalDealers = await res.json();
@@ -825,7 +821,7 @@
           </td>
           <td>
             <select id="tier-${d.id}">
-              <option value="Regular" ${d.scheme_name === 'Regular' ? 'selected' : ''}>Regular (0%)</option>
+              <option value="Regular" ${d.scheme_name === 'Regular' ? 'selected' : ''}>Regular (0%)\</option>
               <option value="Silver" ${d.scheme_name.includes('Silver') ? 'selected' : ''}>Silver (5%)</option>
               <option value="Gold" ${d.scheme_name.includes('Gold') ? 'selected' : ''}>Gold (10%)</option>
               <option value="Diamond" ${d.scheme_name.includes('Diamond') ? 'selected' : ''}>Diamond (15%)</option>
@@ -854,7 +850,6 @@
       loadRetailers();
     }
 
-    // 6. Master Invoice Generator
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
