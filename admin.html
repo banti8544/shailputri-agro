@@ -206,6 +206,7 @@
               <option value="5" selected>5% GST</option>
               <option value="12">12% GST</option>
               <option value="18">18% GST</option>
+              <option value="28">28% GST</option>
             </select>
           </div>
           <div>
@@ -247,7 +248,7 @@
             </tr>
           </thead>
           <tbody id="admin-products-table">
-            <tr><td colspan="9">Loading products...</td></tr>
+            <tr><td colspan="9" style="text-align: center;">Loading products from server...</td></tr>
           </tbody>
         </table>
       </div>
@@ -361,7 +362,7 @@
         }
       } catch (err) {
         msg.style.color = "#c5221f";
-        msg.textContent = "Server error! Ensure node server.js is running.";
+        msg.textContent = "Server waking up... please try again in 5 seconds.";
       }
     }
 
@@ -369,10 +370,10 @@
       document.getElementById("admin-login-screen").style.display = "none";
       document.getElementById("admin-main-content").style.display = "block";
       
-      try { loadCompanySettings(); } catch(e){}
-      try { loadAdminProducts(); } catch(e){}
-      try { fetchOrders(); } catch(e){}
-      try { loadRetailers(); } catch(e){}
+      loadCompanySettings();
+      loadAdminProducts();
+      fetchOrders();
+      loadRetailers();
     }
 
     function adminLogout() {
@@ -416,24 +417,26 @@
     }
 
     async function loadCompanySettings() {
-      const res = await fetch('/api/company-settings');
-      companyConfig = await res.json();
-      if (companyConfig.company_name) {
-        document.getElementById("cfg-name").value = companyConfig.company_name;
-        document.getElementById("cfg-gstin").value = companyConfig.gstin || '';
-        document.getElementById("cfg-fssai").value = companyConfig.fssai || '';
-        document.getElementById("cfg-udyam").value = companyConfig.udyam || '';
-        document.getElementById("cfg-cin").value = companyConfig.cin || '';
-        document.getElementById("cfg-state").value = companyConfig.state || 'Assam';
-        document.getElementById("cfg-address").value = companyConfig.address || '';
-        document.getElementById("cfg-bulk-qty").value = companyConfig.bulk_qty_threshold || 10;
-        document.getElementById("cfg-bulk-disc").value = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 3;
-        
-        document.getElementById("cfg-bank-name").value = companyConfig.bank_name || '';
-        document.getElementById("cfg-bank-acc").value = companyConfig.bank_account_no || '';
-        document.getElementById("cfg-bank-ifsc").value = companyConfig.bank_ifsc || '';
-        document.getElementById("cfg-bank-branch").value = companyConfig.bank_branch || '';
-      }
+      try {
+        const res = await fetch('/api/company-settings');
+        companyConfig = await res.json();
+        if (companyConfig.company_name) {
+          document.getElementById("cfg-name").value = companyConfig.company_name;
+          document.getElementById("cfg-gstin").value = companyConfig.gstin || '';
+          document.getElementById("cfg-fssai").value = companyConfig.fssai || '';
+          document.getElementById("cfg-udyam").value = companyConfig.udyam || '';
+          document.getElementById("cfg-cin").value = companyConfig.cin || '';
+          document.getElementById("cfg-state").value = companyConfig.state || 'Assam';
+          document.getElementById("cfg-address").value = companyConfig.address || '';
+          document.getElementById("cfg-bulk-qty").value = companyConfig.bulk_qty_threshold || 10;
+          document.getElementById("cfg-bulk-disc").value = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 3;
+          
+          document.getElementById("cfg-bank-name").value = companyConfig.bank_name || '';
+          document.getElementById("cfg-bank-acc").value = companyConfig.bank_account_no || '';
+          document.getElementById("cfg-bank-ifsc").value = companyConfig.bank_ifsc || '';
+          document.getElementById("cfg-bank-branch").value = companyConfig.bank_branch || '';
+        }
+      } catch(e) {}
     }
 
     async function saveCompanySettings(e) {
@@ -510,12 +513,22 @@
       alert(`Category "${catName}" added!`);
     }
 
-    async function loadAdminProducts() {
-      const res = await fetch('/api/products');
-      const data = await res.json();
-      globalProducts = data.products || [];
-      refreshCategoriesUI(globalProducts);
-      renderAdminProducts(globalProducts);
+    async function loadAdminProducts(retryCount = 0) {
+      try {
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error('Network response not ok');
+        const data = await res.json();
+        globalProducts = data.products || [];
+        refreshCategoriesUI(globalProducts);
+        renderAdminProducts(globalProducts);
+      } catch (err) {
+        if (retryCount < 3) {
+          setTimeout(() => loadAdminProducts(retryCount + 1), 2000);
+        } else {
+          document.getElementById('admin-products-table').innerHTML = 
+            '<tr><td colspan="9" style="text-align:center; color:red;">Server waking up. Please refresh again in a few moments.</td></tr>';
+        }
+      }
     }
 
     function filterAdminProducts() {
@@ -531,10 +544,21 @@
 
     function renderAdminProducts(list) {
       const tbody = document.getElementById('admin-products-table');
-      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No matching products found.</td></tr>'; return; }
+      if (!list || list.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No products found.</td></tr>'; 
+        return; 
+      }
       
       tbody.innerHTML = list.map(p => {
-        const imgPath = p.imageUrl ? '/' + p.imageUrl : '/images/placeholder.png';
+        let rawImg = p.imageUrl || p.image_url || 'images/placeholder.png';
+        let imgPath = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
+
+        // GST rate parsing (default to 5 if undefined)
+        let currentGst = 5;
+        if (p.gst_rate !== undefined && p.gst_rate !== null) {
+          currentGst = parseInt(p.gst_rate, 10);
+        }
+
         return `
           <tr id="row-${p.id}">
             <td>${p.id}</td>
@@ -543,17 +567,18 @@
             <td><input type="text" id="hsn-${p.id}" value="${p.hsn || '1006'}" style="width: 70px;"></td>
             <td>
               <select id="gst-${p.id}">
-                <option value="0" ${p.gst_rate === 0 ? 'selected' : ''}>0%</option>
-                <option value="5" ${p.gst_rate === 5 ? 'selected' : ''}>5%</option>
-                <option value="12" ${p.gst_rate === 12 ? 'selected' : ''}>12%</option>
-                <option value="18" ${p.gst_rate === 18 ? 'selected' : ''}>18%</option>
+                <option value="0" ${currentGst === 0 ? 'selected' : ''}>0%</option>
+                <option value="5" ${currentGst === 5 ? 'selected' : ''}>5%</option>
+                <option value="12" ${currentGst === 12 ? 'selected' : ''}>12%</option>
+                <option value="18" ${currentGst === 18 ? 'selected' : ''}>18%</option>
+                <option value="28" ${currentGst === 28 ? 'selected' : ''}>28%</option>
               </select>
             </td>
-            <td><input type="number" id="price-${p.id}" value="${p.price || p.originalPrice || 0}" style="width: 75px;"></td>
+            <td><input type="number" id="price-${p.id}" value="${p.originalPrice || p.price || 0}" style="width: 75px;"></td>
             <td><input type="number" id="stock-${p.id}" value="${p.stock ?? 0}" style="width: 55px;"></td>
             <td>
               <div style="display: flex; align-items: center; gap: 6px;">
-                <img src="${imgPath}" id="preview-${p.id}" style="width: 35px; height: 35px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;">
+                <img src="${imgPath}" id="preview-${p.id}" style="width: 35px; height: 35px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1;" onerror="this.onerror=null; this.src='/images/placeholder.png';">
                 <input type="file" id="file-${p.id}" accept="image/*" style="font-size: 11px; width: 130px;" onchange="previewProductImage(event, ${p.id})">
               </div>
             </td>
@@ -683,9 +708,11 @@
     }
 
     async function fetchOrders() {
-      const res = await fetch('/api/orders');
-      globalOrders = await res.json();
-      renderAdminOrders(globalOrders);
+      try {
+        const res = await fetch('/api/orders');
+        globalOrders = await res.json();
+        renderAdminOrders(globalOrders);
+      } catch(e) {}
     }
 
     function filterAdminOrders() {
@@ -702,7 +729,7 @@
 
     function renderAdminOrders(list) {
       const tbody = document.getElementById('admin-orders-table');
-      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching orders found.</td></tr>'; return; }
+      if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">No matching orders found.</td></tr>'; return; }
 
       tbody.innerHTML = list.slice().reverse().map(o => {
         const date = o.created_at ? new Date(o.created_at).toLocaleDateString('en-GB') : '-';
@@ -792,9 +819,11 @@
     }
 
     async function loadRetailers() {
-      const res = await fetch('/api/retailers');
-      globalDealers = await res.json();
-      renderAdminDealers(globalDealers);
+      try {
+        const res = await fetch('/api/retailers');
+        globalDealers = await res.json();
+        renderAdminDealers(globalDealers);
+      } catch(e) {}
     }
 
     function filterAdminDealers() {
@@ -810,7 +839,7 @@
 
     function renderAdminDealers(list) {
       const tbody = document.getElementById('retailers-table');
-      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="6">No matching dealers.</td></tr>'; return; }
+      if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6">No matching dealers.</td></tr>'; return; }
 
       tbody.innerHTML = list.map(d => `
         <tr>
@@ -821,7 +850,7 @@
           </td>
           <td>
             <select id="tier-${d.id}">
-              <option value="Regular" ${d.scheme_name === 'Regular' ? 'selected' : ''}>Regular (0%)\</option>
+              <option value="Regular" ${d.scheme_name === 'Regular' ? 'selected' : ''}>Regular (0%)</option>
               <option value="Silver" ${d.scheme_name.includes('Silver') ? 'selected' : ''}>Silver (5%)</option>
               <option value="Gold" ${d.scheme_name.includes('Gold') ? 'selected' : ''}>Gold (10%)</option>
               <option value="Diamond" ${d.scheme_name.includes('Diamond') ? 'selected' : ''}>Diamond (15%)</option>
