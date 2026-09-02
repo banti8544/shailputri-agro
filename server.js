@@ -811,6 +811,44 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
   }
 });
+// BUSY Direct Catalog Sync Endpoint
+app.post('/api/busy/sync-catalog', (req, res) => {
+  const secretKey = req.headers['x-busy-key'];
+  if (secretKey !== "Shailputri@BusySync2026") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: "No items provided" });
+  }
+
+  const updateStmt = db.prepare(`
+    UPDATE products 
+    SET stock = ?, price = ? 
+    WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))
+  `);
+
+  let updated = 0;
+  const runTransaction = db.transaction((list) => {
+    for (const item of list) {
+      const res = updateStmt.run(
+        parseInt(item.stock) || 0,
+        parseInt(item.price) || 0,
+        (item.sku || '').trim(),
+        (item.name || '').trim()
+      );
+      if (res.changes > 0) updated++;
+    }
+  });
+
+  try {
+    runTransaction(items);
+    res.json({ success: true, message: `Successfully synced ${updated} items from BUSY!` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 // 8. Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
