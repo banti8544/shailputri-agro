@@ -253,7 +253,14 @@
       <div class="card-box">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <h2>4. Incoming Orders Management</h2>
-          <input type="text" id="search-orders-input" onkeyup="filterAdminOrders()" placeholder="🔍 Search Order ID, Dealer, Mobile, State..." class="search-box">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="search-orders-input" onkeyup="filterAdminOrders()" placeholder="🔍 Search Order ID, Dealer, Mobile, State..." class="search-box">
+            <a href="/api/busy/export-orders?key=Shailputri@BusySync2026" 
+               class="btn" 
+               style="background-color: #107c41; color: white; padding: 8px 14px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.85rem; display: inline-block;">
+              📥 Export Orders to BUSY
+            </a>
+          </div>
         </div>
         <table>
           <thead>
@@ -519,7 +526,7 @@
       const filtered = globalProducts.filter(p => 
         p.name.toLowerCase().includes(q) || 
         p.sku.toLowerCase().includes(q) || 
-        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) || 
         (p.hsn && p.hsn.toLowerCase().includes(q))
       );
       renderAdminProducts(filtered);
