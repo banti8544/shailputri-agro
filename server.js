@@ -811,7 +811,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
   }
 });
-// BUSY Direct Catalog Sync Endpoint (Auto-Update or Auto-Create)
+// BUSY Direct Catalog Sync Endpoint (Auto-Update with Images)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -823,11 +823,20 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     return res.status(400).json({ success: false, message: "No items provided" });
   }
 
-  const findStmt = db.prepare('SELECT id, price FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
-  const updateStmt = db.prepare('UPDATE products SET stock = ?, price = CASE WHEN ? > 0 THEN ? ELSE price END WHERE id = ?');
+  const findStmt = db.prepare('SELECT id, price, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+  
+  // Update stock, price and image_url (if provided and not placeholder)
+  const updateStmt = db.prepare(`
+    UPDATE products 
+    SET stock = ?, 
+        price = CASE WHEN ? > 0 THEN ? ELSE price END,
+        image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
+    WHERE id = ?
+  `);
+
   const insertStmt = db.prepare(`
     INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-    VALUES (?, ?, 'Bulk / Bag', ?, ?, 'Agro Commodities', 'images/placeholder.png', '1006', 5)
+    VALUES (?, ?, 'Bulk / Bag', ?, ?, 'Agro Commodities', ?, '1006', 5)
   `);
 
   let updated = 0;
@@ -839,15 +848,16 @@ app.post('/api/busy/sync-catalog', (req, res) => {
       const cleanSku = (item.sku || cleanName).trim();
       const stockQty = parseInt(item.stock) || 0;
       const priceVal = parseInt(item.price) || 0;
+      const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
 
       if (!cleanName) continue;
 
       const existing = findStmt.get(cleanSku, cleanName);
       if (existing) {
-        updateStmt.run(stockQty, priceVal, priceVal, existing.id);
+        updateStmt.run(stockQty, priceVal, priceVal, imgVal, imgVal, imgVal, existing.id);
         updated++;
       } else {
-        insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty);
+        insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, imgVal);
         inserted++;
       }
     }
