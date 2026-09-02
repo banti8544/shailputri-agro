@@ -19,6 +19,22 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Helper to normalize any rogue GST rate (e.g. 1800 -> 18, 500 -> 5)
+function sanitizeGst(val) {
+  let num = parseInt(val, 10);
+  if (isNaN(num) || num < 0) return 5;
+  if (num > 100) num = Math.round(num / 100);
+  return num;
+}
+
+// Auto-heal existing bad GST values in database on startup
+try {
+  db.prepare(`UPDATE products SET gst_rate = 18 WHERE gst_rate = 1800`).run();
+  db.prepare(`UPDATE products SET gst_rate = 5 WHERE gst_rate = 500`).run();
+  db.prepare(`UPDATE products SET gst_rate = 12 WHERE gst_rate = 1200`).run();
+  db.prepare(`UPDATE products SET gst_rate = 28 WHERE gst_rate = 2800`).run();
+} catch(e) {}
+
 // GitHub Image Auto-Commit Function
 async function syncImageToGitHub(filePath, fileName) {
   const token = process.env.GITHUB_TOKEN;
@@ -388,13 +404,15 @@ app.get('/api/products', (req, res) => {
     const productsWithPricing = products.map(p => {
       const origPrice = p.price || 0;
       const discountedPrice = Math.round(origPrice * (100 - discountPercent) / 100);
+      const cleanGst = sanitizeGst(p.gst_rate);
+
       return {
         id: p.id,
         name: p.name,
         sku: p.sku,
         pack: p.pack || 'Standard',
         hsn: p.hsn || '1006',
-        gst_rate: p.gst_rate ?? 5,
+        gst_rate: cleanGst,
         originalPrice: origPrice,
         price: discountedPrice,
         stock: p.stock ?? 50,
@@ -420,6 +438,8 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
       syncImageToGitHub(req.file.path, req.file.filename);
     }
 
+    const cleanGst = sanitizeGst(gst_rate);
+
     db.prepare(`
       INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -432,7 +452,7 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
       category || "General", 
       imagePath, 
       hsn || "1006", 
-      parseInt(gst_rate) || 5
+      cleanGst
     );
 
     res.json({ success: true, message: "Product added successfully with image!" });
@@ -458,7 +478,7 @@ const handleProductUpdate = (req, res) => {
     const finalPrice = (price !== undefined && price !== '') ? (parseInt(price) || 0) : existing.price;
     const finalStock = (stock !== undefined && stock !== '') ? (parseInt(stock) || 0) : existing.stock;
     const finalHsn = (hsn !== undefined && hsn !== '') ? hsn : (existing.hsn || '1006');
-    const finalGst = (gst_rate !== undefined && gst_rate !== '') ? (parseInt(gst_rate) || 0) : (existing.gst_rate ?? 5);
+    const finalGst = (gst_rate !== undefined && gst_rate !== '') ? sanitizeGst(gst_rate) : sanitizeGst(existing.gst_rate);
 
     let finalImageUrl = existing.image_url;
     let uploadedFileName = null;
@@ -492,7 +512,7 @@ app.post('/api/products/:id', upload.single('image'), handleProductUpdate);
 app.post('/api/products/update', (req, res) => {
   const { id, price, stock, hsn, gst_rate } = req.body;
   db.prepare('UPDATE products SET price = ?, stock = ?, hsn = ?, gst_rate = ? WHERE id = ?')
-    .run(parseInt(price), parseInt(stock), hsn, parseInt(gst_rate) || 0, parseInt(id));
+    .run(parseInt(price), parseInt(stock), hsn, sanitizeGst(gst_rate), parseInt(id));
   res.json({ success: true, message: 'Product updated!' });
 });
 
@@ -851,7 +871,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       data.products.forEach(p => {
-        insertProd.run(p.id, p.name, p.sku, p.pack || 'Standard', p.price, p.stock, p.category, p.image_url, p.hsn, p.gst_rate);
+        insertProd.run(p.id, p.name, p.sku, p.pack || 'Standard', p.price, p.stock, p.category, p.image_url, p.hsn, sanitizeGst(p.gst_rate));
       });
     }
 
@@ -885,7 +905,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
   }
 });
 
-// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Image + HSN + GST Auto-Update)
+// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Safe Image + HSN + GST Auto-Update)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -900,6 +920,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
   try {
     const findStmt = db.prepare('SELECT id, price, category, image_url, hsn, gst_rate FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
     
+    // Protected update: Never overwrite custom uploaded images with placeholder
     const updateStmt = db.prepare(`
       UPDATE products 
       SET stock = ?, 
@@ -907,7 +928,10 @@ app.post('/api/busy/sync-catalog', (req, res) => {
           category = CASE WHEN ? != '' THEN ? ELSE category END,
           hsn = CASE WHEN ? != '' THEN ? ELSE hsn END,
           gst_rate = CASE WHEN ? >= 0 THEN ? ELSE gst_rate END,
-          image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
+          image_url = CASE 
+            WHEN ? != '' AND ? NOT LIKE '%placeholder%' THEN ? 
+            ELSE image_url 
+          END
       WHERE id = ?
     `);
 
@@ -927,8 +951,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
         const priceVal = parseInt(item.price) || 0;
         const categoryVal = (item.category || 'Agro Commodities').trim();
         const hsnVal = String(item.hsn || '').trim();
-        const gstVal = parseInt(item.gst_rate);
-        const validGst = isNaN(gstVal) ? -1 : gstVal;
+        const cleanGst = sanitizeGst(item.gst_rate);
         const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
 
         if (!cleanName) continue;
@@ -940,8 +963,8 @@ app.post('/api/busy/sync-catalog', (req, res) => {
             priceVal, priceVal, 
             categoryVal, categoryVal, 
             hsnVal, hsnVal, 
-            validGst, validGst, 
-            imgVal, imgVal, 
+            cleanGst, cleanGst, 
+            imgVal, imgVal, imgVal,
             existing.id
           );
           updated++;
@@ -954,7 +977,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
             categoryVal, 
             imgVal, 
             hsnVal || '1006', 
-            validGst >= 0 ? validGst : 5
+            cleanGst
           );
           inserted++;
         }
