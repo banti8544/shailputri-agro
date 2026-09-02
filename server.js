@@ -811,7 +811,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
   }
 });
-// BUSY Direct Catalog Sync Endpoint (Auto-Update with Category & Images)
+// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Image Auto-Update)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -823,7 +823,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     return res.status(400).json({ success: false, message: "No items provided" });
   }
 
-  const findStmt = db.prepare('SELECT id, price, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+  const findStmt = db.prepare('SELECT id, price, category, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
   
   const updateStmt = db.prepare(`
     UPDATE products 
@@ -855,7 +855,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
 
       const existing = findStmt.get(cleanSku, cleanName);
       if (existing) {
-        updateStmt.run(stockQty, priceVal, priceVal, categoryVal, categoryVal, imgVal, imgVal, imgVal, existing.id);
+        updateStmt.run(stockQty, priceVal, priceVal, categoryVal, categoryVal, imgVal, imgVal, existing.id);
         updated++;
       } else {
         insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, categoryVal, imgVal);
