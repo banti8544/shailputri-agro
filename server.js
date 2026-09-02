@@ -35,17 +35,18 @@ async function syncImageToGitHub(filePath, fileName) {
     const fileContent = fs.readFileSync(filePath, { encoding: 'base64' });
 
     let sha = null;
-    const checkRes = await fetch(url, {
-      headers: { 
-        "Authorization": `Bearer ${token}`, 
-        "User-Agent": "NodeJS-AutoSync" 
+    try {
+      const checkRes = await fetch(url, {
+        headers: { 
+          "Authorization": `Bearer ${token}`, 
+          "User-Agent": "NodeJS-AutoSync" 
+        }
+      });
+      if (checkRes.ok) {
+        const data = await checkRes.json();
+        sha = data.sha;
       }
-    });
-
-    if (checkRes.ok) {
-      const data = await checkRes.json();
-      sha = data.sha;
-    }
+    } catch(e) {}
 
     const payload = {
       message: `Admin Panel auto-save: ${fileName}`,
@@ -408,31 +409,23 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-// Add Product
-app.post('/api/products/add', uploadImage.fields([{ name: 'image', maxCount: 1 }, { name: 'productImage', maxCount: 1 }]), (req, res) => {
+// Add New Product with Image
+app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
   try {
     const { name, sku, pack, price, stock, category, hsn, gst_rate } = req.body;
-    
     let imagePath = 'images/placeholder.png';
-    let uploadedFile = null;
 
-    if (req.files && req.files['image'] && req.files['image'][0]) {
-      uploadedFile = req.files['image'][0];
-    } else if (req.files && req.files['productImage'] && req.files['productImage'][0]) {
-      uploadedFile = req.files['productImage'][0];
-    }
-
-    if (uploadedFile) {
-      imagePath = 'images/' + uploadedFile.filename;
-      syncImageToGitHub(uploadedFile.path, uploadedFile.filename);
+    if (req.file) {
+      imagePath = 'images/' + req.file.filename;
+      syncImageToGitHub(req.file.path, req.file.filename);
     }
 
     db.prepare(`
       INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      name, 
-      sku, 
+      name || 'New Product', 
+      sku || name || 'SKU-' + Date.now(), 
       pack || "Standard", 
       parseInt(price) || 0, 
       parseInt(stock) || 0, 
@@ -449,6 +442,53 @@ app.post('/api/products/add', uploadImage.fields([{ name: 'image', maxCount: 1 }
   }
 });
 
+// Product Update with Image & GitHub Auto-Sync (Supports PUT & POST)
+const handleProductUpdate = (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Product ID not found: ' + id });
+    }
+
+    const { name, category, price, stock, hsn, gst_rate } = req.body;
+
+    const finalName = (name !== undefined && name !== '') ? name : existing.name;
+    const finalCat = (category !== undefined && category !== '') ? category : existing.category;
+    const finalPrice = (price !== undefined && price !== '') ? (parseInt(price) || 0) : existing.price;
+    const finalStock = (stock !== undefined && stock !== '') ? (parseInt(stock) || 0) : existing.stock;
+    const finalHsn = (hsn !== undefined && hsn !== '') ? hsn : (existing.hsn || '1006');
+    const finalGst = (gst_rate !== undefined && gst_rate !== '') ? (parseInt(gst_rate) || 0) : (existing.gst_rate ?? 5);
+
+    let finalImageUrl = existing.image_url;
+    let uploadedFileName = null;
+
+    if (req.file) {
+      finalImageUrl = `images/${req.file.filename}`;
+      uploadedFileName = req.file.filename;
+    }
+
+    db.prepare(`
+      UPDATE products 
+      SET name = ?, category = ?, price = ?, stock = ?, hsn = ?, gst_rate = ?, image_url = ? 
+      WHERE id = ?
+    `).run(finalName, finalCat, finalPrice, finalStock, finalHsn, finalGst, finalImageUrl, id);
+
+    if (uploadedFileName && req.file && req.file.path) {
+      syncImageToGitHub(req.file.path, uploadedFileName);
+    }
+
+    res.json({ success: true, message: 'Product & Image updated successfully' });
+  } catch (err) {
+    console.error('Update Product Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update: ' + err.message });
+  }
+};
+
+app.post('/api/products/:id/update-with-image', upload.single('image'), handleProductUpdate);
+app.put('/api/products/:id', upload.single('image'), handleProductUpdate);
+app.post('/api/products/:id', upload.single('image'), handleProductUpdate);
+
 app.post('/api/products/update', (req, res) => {
   const { id, price, stock, hsn, gst_rate } = req.body;
   db.prepare('UPDATE products SET price = ?, stock = ?, hsn = ?, gst_rate = ? WHERE id = ?')
@@ -459,31 +499,6 @@ app.post('/api/products/update', (req, res) => {
 app.delete('/api/products/:id', (req, res) => {
   db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
   res.json({ success: true, message: 'Product deleted!' });
-});
-
-app.put('/api/products/:id', upload.single('image'), (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, category, price, stock, hsn, gst_rate } = req.body;
-
-    let query = `UPDATE products SET name = ?, category = ?, price = ?, stock = ?, hsn = ?, gst_rate = ?`;
-    let params = [name, category, parseInt(price) || 0, parseInt(stock) || 0, hsn || '1006', parseInt(gst_rate) || 5];
-
-    if (req.file) {
-      query += `, image_url = ?`;
-      params.push(`images/${req.file.filename}`);
-      syncImageToGitHub(req.file.path, req.file.filename);
-    }
-
-    query += ` WHERE id = ?`;
-    params.push(id);
-
-    db.prepare(query).run(...params);
-    res.json({ success: true, message: 'Product & Image updated successfully' });
-  } catch (err) {
-    console.error('Update Product Error:', err);
-    res.status(500).json({ error: 'Failed to update product' });
-  }
 });
 
 // 6. Orders APIs
