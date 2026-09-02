@@ -811,7 +811,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
   }
 });
-// BUSY Direct Catalog Sync Endpoint
+// BUSY Direct Catalog Sync Endpoint (Auto-Update or Auto-Create)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -823,28 +823,42 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     return res.status(400).json({ success: false, message: "No items provided" });
   }
 
-  const updateStmt = db.prepare(`
-    UPDATE products 
-    SET stock = ?, price = ? 
-    WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))
+  const findStmt = db.prepare('SELECT id, price FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+  const updateStmt = db.prepare('UPDATE products SET stock = ?, price = CASE WHEN ? > 0 THEN ? ELSE price END WHERE id = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
+    VALUES (?, ?, 'Bulk / Bag', ?, ?, 'Agro Commodities', 'images/placeholder.png', '1006', 5)
   `);
 
   let updated = 0;
+  let inserted = 0;
+
   const runTransaction = db.transaction((list) => {
     for (const item of list) {
-      const res = updateStmt.run(
-        parseInt(item.stock) || 0,
-        parseInt(item.price) || 0,
-        (item.sku || '').trim(),
-        (item.name || '').trim()
-      );
-      if (res.changes > 0) updated++;
+      const cleanName = (item.name || '').trim();
+      const cleanSku = (item.sku || cleanName).trim();
+      const stockQty = parseInt(item.stock) || 0;
+      const priceVal = parseInt(item.price) || 0;
+
+      if (!cleanName) continue;
+
+      const existing = findStmt.get(cleanSku, cleanName);
+      if (existing) {
+        updateStmt.run(stockQty, priceVal, priceVal, existing.id);
+        updated++;
+      } else {
+        insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty);
+        inserted++;
+      }
     }
   });
 
   try {
     runTransaction(items);
-    res.json({ success: true, message: `Successfully synced ${updated} items from BUSY!` });
+    res.json({ 
+      success: true, 
+      message: `Successfully synced! (Updated: ${updated}, Auto-Added: ${inserted})` 
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
