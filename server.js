@@ -523,7 +523,7 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
 });
 
 // Product Update with Image & GitHub Auto-Sync
-const handleProductUpdate = (req, res) => {
+const handleProductUpdate = async (req, res) => {
   try {
     const id = Number(req.params.id);
     const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
@@ -542,11 +542,11 @@ const handleProductUpdate = (req, res) => {
     const finalGst = (gst_rate !== undefined && gst_rate !== '') ? sanitizeGst(gst_rate) : sanitizeGst(existing.gst_rate);
 
     let finalImageUrl = existing.image_url;
-    let uploadedFileName = null;
 
     if (req.file) {
       finalImageUrl = `images/${req.file.filename}`;
-      uploadedFileName = req.file.filename;
+      // तुरंत GitHub पर अपलोड करें और इंतज़ार करें ताकि फ़ाइल पक्की हो जाए
+      await syncImageToGitHub(req.file.path, req.file.filename);
     }
 
     db.prepare(`
@@ -555,11 +555,9 @@ const handleProductUpdate = (req, res) => {
       WHERE id = ?
     `).run(finalName, finalCat, finalPrice, finalStock, finalHsn, finalGst, finalUnit, finalImageUrl, id);
 
-    if (uploadedFileName && req.file && req.file.path) {
-      syncImageToGitHub(req.file.path, uploadedFileName);
-    }
-
+    // डेटाबेस का भी बैकअप GitHub पर भेजें
     setImmediate(() => syncDatabaseToGitHub());
+
     res.json({ success: true, message: 'Product & Image updated successfully' });
   } catch (err) {
     console.error('Update Product Error:', err);
