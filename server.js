@@ -19,6 +19,62 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// GitHub Image Auto-Commit Function
+async function syncImageToGitHub(filePath, fileName) {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    console.log('⚠️ GITHUB_TOKEN not configured in Environment. Skipping GitHub upload.');
+    return;
+  }
+
+  const repoOwner = "banti8544";
+  const repoName = "shailputri-agro";
+  const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/images/${fileName}`;
+
+  try {
+    const fileContent = fs.readFileSync(filePath, { encoding: 'base64' });
+
+    let sha = null;
+    const checkRes = await fetch(url, {
+      headers: { 
+        "Authorization": `Bearer ${token}`, 
+        "User-Agent": "NodeJS-AutoSync" 
+      }
+    });
+
+    if (checkRes.ok) {
+      const data = await checkRes.json();
+      sha = data.sha;
+    }
+
+    const payload = {
+      message: `Admin Panel auto-save: ${fileName}`,
+      content: fileContent,
+      branch: "main",
+      ...(sha ? { sha } : {})
+    };
+
+    const uploadRes = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "NodeJS-AutoSync"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (uploadRes.ok) {
+      console.log(`✅ Image ${fileName} successfully committed to GitHub repository!`);
+    } else {
+      const errData = await uploadRes.json();
+      console.error(`❌ GitHub Upload Failed:`, errData.message);
+    }
+  } catch (err) {
+    console.error('❌ GitHub Auto-Sync Error:', err.message);
+  }
+}
+
 // 1. Safe Schema Migration
 function addCol(table, col, def) {
   try {
@@ -113,7 +169,7 @@ app.get(['/api/gst-lookup/:gstin', '/api/fetch-gst/:gstin'], (req, res) => {
   res.json({ success: true, firmName, address: fullAddress, state: detectedState, stateCode });
 });
 
-// 3. Company Settings APIs (GET, PUT & POST with Files)
+// 3. Company Settings APIs
 app.get('/api/company-settings', (req, res) => {
   try {
     const config = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
@@ -171,10 +227,12 @@ app.post('/api/company-settings', uploadImage.fields([{ name: 'companyLogo', max
     if (req.files && req.files['companyLogo']) {
       updates.push("logo_url = ?");
       params.push('images/' + req.files['companyLogo'][0].filename);
+      syncImageToGitHub(req.files['companyLogo'][0].path, req.files['companyLogo'][0].filename);
     }
     if (req.files && req.files['signatoryStamp']) {
       updates.push("signatory_url = ?");
       params.push('images/' + req.files['signatoryStamp'][0].filename);
+      syncImageToGitHub(req.files['signatoryStamp'][0].path, req.files['signatoryStamp'][0].filename);
     }
 
     params.push(1);
@@ -350,16 +408,23 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-// Add Product - Supports both 'image' and 'productImage' field names
+// Add Product
 app.post('/api/products/add', uploadImage.fields([{ name: 'image', maxCount: 1 }, { name: 'productImage', maxCount: 1 }]), (req, res) => {
   try {
     const { name, sku, pack, price, stock, category, hsn, gst_rate } = req.body;
     
     let imagePath = 'images/placeholder.png';
+    let uploadedFile = null;
+
     if (req.files && req.files['image'] && req.files['image'][0]) {
-      imagePath = 'images/' + req.files['image'][0].filename;
+      uploadedFile = req.files['image'][0];
     } else if (req.files && req.files['productImage'] && req.files['productImage'][0]) {
-      imagePath = 'images/' + req.files['productImage'][0].filename;
+      uploadedFile = req.files['productImage'][0];
+    }
+
+    if (uploadedFile) {
+      imagePath = 'images/' + uploadedFile.filename;
+      syncImageToGitHub(uploadedFile.path, uploadedFile.filename);
     }
 
     db.prepare(`
@@ -407,6 +472,7 @@ app.put('/api/products/:id', upload.single('image'), (req, res) => {
     if (req.file) {
       query += `, image_url = ?`;
       params.push(`images/${req.file.filename}`);
+      syncImageToGitHub(req.file.path, req.file.filename);
     }
 
     query += ` WHERE id = ?`;
@@ -565,7 +631,6 @@ app.post('/api/orders/:id/return', (req, res) => {
   }
 });
 
-// Update Order Status & Payment Status (PUT & POST Supported)
 const updateStatusHandler = (req, res) => {
   try {
     const orderId = Number(req.params.id);
@@ -719,7 +784,6 @@ app.get('/api/retailers/me', (req, res) => {
 // 9. Database Backup & Restore APIs
 const backupUpload = multer({ dest: path.join(__dirname, 'temp_backups/') });
 
-// A. Download Database File (.db)
 app.get('/api/admin/backup-db', (req, res) => {
   const dbPath = path.join(__dirname, 'shailputri.db');
   if (fs.existsSync(dbPath)) {
@@ -730,7 +794,6 @@ app.get('/api/admin/backup-db', (req, res) => {
   }
 });
 
-// B. Download Full JSON Backup (Orders, Retailers, Products, Settings)
 app.get('/api/admin/backup-json', (req, res) => {
   try {
     const products = db.prepare('SELECT * FROM products').all();
@@ -757,7 +820,6 @@ app.get('/api/admin/backup-json', (req, res) => {
   }
 });
 
-// C. Restore Database from JSON
 app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res) => {
   try {
     if (!req.file) {
@@ -767,7 +829,6 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     const rawData = fs.readFileSync(req.file.path, 'utf-8');
     const data = JSON.parse(rawData);
 
-    // Restore Products
     if (Array.isArray(data.products)) {
       db.prepare('DELETE FROM products').run();
       const insertProd = db.prepare(`
@@ -779,7 +840,6 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
       });
     }
 
-    // Restore Retailers
     if (Array.isArray(data.retailers)) {
       db.prepare('DELETE FROM retailers').run();
       const insertRet = db.prepare(`
@@ -791,7 +851,6 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
       });
     }
 
-    // Restore Orders
     if (Array.isArray(data.orders)) {
       db.prepare('DELETE FROM orders').run();
       const insertOrd = db.prepare(`
@@ -803,7 +862,6 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
       });
     }
 
-    // Delete temp file
     try { fs.unlinkSync(req.file.path); } catch(e){}
 
     res.json({ success: true, message: 'Data restored successfully! All orders, products and dealers are back.' });
@@ -812,7 +870,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
   }
 });
 
-// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Image Auto-Update)
+// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Image + HSN + GST Auto-Update)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -825,22 +883,24 @@ app.post('/api/busy/sync-catalog', (req, res) => {
   }
 
   try {
-    const findStmt = db.prepare('SELECT id, price, category, image_url FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+    const findStmt = db.prepare('SELECT id, price, category, image_url, hsn, gst_rate FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
     
     const updateStmt = db.prepare(`
       UPDATE products 
       SET stock = ?, 
           price = CASE WHEN ? > 0 THEN ? ELSE price END,
           category = CASE WHEN ? != '' THEN ? ELSE category END,
+          hsn = CASE WHEN ? != '' THEN ? ELSE hsn END,
+          gst_rate = CASE WHEN ? >= 0 THEN ? ELSE gst_rate END,
           image_url = CASE WHEN ? != '' AND ? != 'images/placeholder.png' THEN ? ELSE image_url END
       WHERE id = ?
     `);
 
     const insertStmt = db.prepare(`
       INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, '1006', 5)
+      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, ?, ?)
     `);
-
+    
     let updated = 0;
     let inserted = 0;
 
@@ -851,16 +911,36 @@ app.post('/api/busy/sync-catalog', (req, res) => {
         const stockQty = parseInt(item.stock) || 0;
         const priceVal = parseInt(item.price) || 0;
         const categoryVal = (item.category || 'Agro Commodities').trim();
+        const hsnVal = String(item.hsn || '').trim();
+        const gstVal = parseInt(item.gst_rate);
+        const validGst = isNaN(gstVal) ? -1 : gstVal;
         const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
 
         if (!cleanName) continue;
 
         const existing = findStmt.get(cleanSku, cleanName);
         if (existing) {
-          updateStmt.run(stockQty, priceVal, priceVal, categoryVal, categoryVal, imgVal, imgVal, existing.id);
+          updateStmt.run(
+            stockQty, 
+            priceVal, priceVal, 
+            categoryVal, categoryVal, 
+            hsnVal, hsnVal, 
+            validGst, validGst, 
+            imgVal, imgVal, 
+            existing.id
+          );
           updated++;
         } else {
-          insertStmt.run(cleanName, cleanSku, priceVal || 2500, stockQty, categoryVal, imgVal);
+          insertStmt.run(
+            cleanName, 
+            cleanSku, 
+            priceVal || 2500, 
+            stockQty, 
+            categoryVal, 
+            imgVal, 
+            hsnVal || '1006', 
+            validGst >= 0 ? validGst : 5
+          );
           inserted++;
         }
       }
@@ -876,7 +956,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
   }
 });
 
-// BUSY Order Export in Excel-ready format (Accurate Schema Match)
+// BUSY Order Export in Excel-ready format
 app.get('/api/busy/export-orders', (req, res) => {
   const secretKey = req.query.key;
   if (secretKey !== "Shailputri@BusySync2026") {
