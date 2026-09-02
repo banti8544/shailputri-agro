@@ -60,7 +60,7 @@
 
     <div class="container">
 
-<!-- 0. Database Backup & BUSY Export Box -->
+      <!-- 0. Database Backup & BUSY Export Box -->
       <div class="card-box" style="background: #fffbeb; border: 1px solid #fef08a; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
@@ -71,7 +71,6 @@
           </div>
           
           <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <!-- नया BUSY EXPORT बटन सबसे आगे -->
             <a href="/api/busy/export-orders?key=Shailputri@BusySync2026" class="btn" style="background: #0f766e; color: white; text-decoration: none; font-size: 0.85rem; padding: 8px 14px; font-weight: bold; border-radius: 4px;">
               📥 Export Orders to BUSY
             </a>
@@ -133,7 +132,6 @@
             <input type="number" id="cfg-bulk-disc" min="0" max="50" value="3" style="width: 100%; box-sizing: border-box;">
           </div>
 
-          <!-- Bank Details Fields -->
           <div>
             <label style="font-weight: bold; font-size: 0.85rem;">Bank Name</label>
             <input type="text" id="cfg-bank-name" placeholder="e.g. State Bank of India" style="width: 100%; box-sizing: border-box;">
@@ -433,7 +431,6 @@
         document.getElementById("cfg-bulk-qty").value = companyConfig.bulk_qty_threshold || 10;
         document.getElementById("cfg-bulk-disc").value = companyConfig.bulk_discount_percent !== undefined ? companyConfig.bulk_discount_percent : 3;
         
-        // Bank Details
         document.getElementById("cfg-bank-name").value = companyConfig.bank_name || '';
         document.getElementById("cfg-bank-acc").value = companyConfig.bank_account_no || '';
         document.getElementById("cfg-bank-ifsc").value = companyConfig.bank_ifsc || '';
@@ -456,7 +453,6 @@
       formData.append('phone', '8544241851');
       formData.append('email', 'info@shailputriagro.com');
 
-      // Bank Details
       formData.append('bank_name', document.getElementById("cfg-bank-name").value);
       formData.append('bank_account_no', document.getElementById("cfg-bank-acc").value);
       formData.append('bank_ifsc', document.getElementById("cfg-bank-ifsc").value);
@@ -566,8 +562,8 @@
               </div>
             </td>
             <td>
-              <button class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Save</button>
-              <button class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
+              <button type="button" id="save-btn-${p.id}" class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Save</button>
+              <button type="button" class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
             </td>
           </tr>
         `;
@@ -587,6 +583,12 @@
     }
 
     async function saveProductRow(id, name) {
+      const btn = document.getElementById(`save-btn-${id}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Saving...";
+      }
+
       const price = document.getElementById(`price-${id}`).value;
       const stock = document.getElementById(`stock-${id}`).value;
       const hsn = document.getElementById(`hsn-${id}`).value;
@@ -613,14 +615,19 @@
         });
         const result = await res.json();
         if (result.success) {
-          alert('Product & Image updated successfully!');
+          alert('✅ Product & Image updated & committed to GitHub successfully!');
           loadAdminProducts();
         } else {
-          alert('Error: ' + (result.message || result.error || 'Failed to update'));
+          alert('❌ Error: ' + (result.message || result.error || 'Failed to update'));
         }
       } catch (err) {
         console.error(err);
-        alert('Failed to save changes.');
+        alert('❌ Failed to save changes.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Save";
+        }
       }
     }
 
@@ -847,7 +854,7 @@
       loadRetailers();
     }
 
-    // 6. Master Invoice Generator (With Bank Details & Signature Stamp)
+    // 6. Master Invoice Generator
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -994,7 +1001,6 @@
             </table>
 
             <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
-              <!-- Bank Details on Invoice -->
               <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
                 <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
                 Bank Name: <strong>${companyConfig.bank_name || 'State Bank of India'}</strong><br>
@@ -1003,7 +1009,6 @@
                 Branch: <strong>${companyConfig.bank_branch || 'Purnia Main Branch'}</strong>
               </div>
 
-              <!-- Total Calculations -->
               <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
                 <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
                 <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
