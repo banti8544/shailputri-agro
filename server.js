@@ -92,6 +92,54 @@ async function syncImageToGitHub(filePath, fileName) {
   }
 }
 
+// Database Auto-Sync to GitHub Function (Persistent Storage Fix for Free Render)
+async function syncDatabaseToGitHub() {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return;
+
+  const dbPath = path.join(__dirname, 'shailputri.db');
+  if (!fs.existsSync(dbPath)) return;
+
+  const repoOwner = "banti8544";
+  const repoName = "shailputri-agro";
+  const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/shailputri.db`;
+
+  try {
+    const fileContent = fs.readFileSync(dbPath, { encoding: 'base64' });
+
+    let sha = null;
+    try {
+      const checkRes = await fetch(url, {
+        headers: { "Authorization": `Bearer ${token}`, "User-Agent": "NodeJS-AutoSync" }
+      });
+      if (checkRes.ok) {
+        const data = await checkRes.json();
+        sha = data.sha;
+      }
+    } catch(e) {}
+
+    const payload = {
+      message: `Database auto-backup: ${new Date().toISOString()}`,
+      content: fileContent,
+      branch: "main",
+      ...(sha ? { sha } : {})
+    };
+
+    await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "NodeJS-AutoSync"
+      },
+      body: JSON.stringify(payload)
+    });
+    console.log(`✅ Database successfully backed up to GitHub!`);
+  } catch (err) {
+    console.error('❌ DB GitHub Sync Error:', err.message);
+  }
+}
+
 // 1. Safe Schema Migration
 function addCol(table, col, def) {
   try {
@@ -217,6 +265,7 @@ app.put('/api/company-settings', (req, res) => {
       bank_name || '', bank_account_no || '', bank_ifsc || '', bank_branch || ''
     );
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Settings & Bank Details updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -256,6 +305,7 @@ app.post('/api/company-settings', uploadImage.fields([{ name: 'companyLogo', max
     params.push(1);
     db.prepare(`UPDATE company_settings SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Settings, Bank Details & Logos saved!' });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -322,6 +372,7 @@ app.post('/api/signup', (req, res) => {
     db.prepare('INSERT INTO retailers (business_name, username, password_hash, phone, address, state, gstin, scheme_name, discount_percent, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(businessName || 'Dealer', cleanUser, hashedPassword, phone || '', address || '', state || 'Bihar', gstin || '', 'Regular', 0, 0);
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: "Registration successful! Please login." });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -347,6 +398,7 @@ app.post('/api/forgot-password', (req, res) => {
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
     db.prepare('UPDATE retailers SET password_hash = ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(hashedPassword, cleanUser, '@' + cleanUser);
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: "Password reset successfully!" });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -359,6 +411,8 @@ app.post('/api/profile/update', (req, res) => {
     const cleanUser = (username || '').trim().replace(/^@/, '');
     db.prepare('UPDATE retailers SET business_name = ?, phone = ?, address = ?, state = ?, gstin = ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)')
       .run(businessName, phone, address, state, gstin, cleanUser, '@' + cleanUser);
+    
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Profile updated successfully!' });
   } catch(e) {
     res.json({ success: false, message: e.message });
@@ -379,6 +433,8 @@ app.post('/api/retailers/update-scheme', (req, res) => {
     const { id, schemeName, discountPercent, creditLimit, state, gstin } = req.body;
     db.prepare('UPDATE retailers SET scheme_name = ?, discount_percent = ?, credit_limit = ?, state = ?, gstin = ? WHERE id = ?')
       .run(schemeName, parseInt(discountPercent) || 0, parseInt(creditLimit) || 0, state, gstin, id);
+    
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Dealer details saved!' });
   } catch(e) {
     res.json({ success: false, message: e.message });
@@ -458,6 +514,7 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
       unit || 'Pcs.'
     );
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: "Product added successfully with image!" });
   } catch (err) {
     console.error("Add Product Error:", err);
@@ -502,6 +559,7 @@ const handleProductUpdate = (req, res) => {
       syncImageToGitHub(req.file.path, uploadedFileName);
     }
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Product & Image updated successfully' });
   } catch (err) {
     console.error('Update Product Error:', err);
@@ -517,11 +575,15 @@ app.post('/api/products/update', (req, res) => {
   const { id, price, stock, hsn, gst_rate } = req.body;
   db.prepare('UPDATE products SET price = ?, stock = ?, hsn = ?, gst_rate = ? WHERE id = ?')
     .run(parseInt(price), parseInt(stock), hsn, sanitizeGst(gst_rate), parseInt(id));
+  
+  setImmediate(() => syncDatabaseToGitHub());
   res.json({ success: true, message: 'Product updated!' });
 });
 
 app.delete('/api/products/:id', (req, res) => {
   db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  
+  setImmediate(() => syncDatabaseToGitHub());
   res.json({ success: true, message: 'Product deleted!' });
 });
 
@@ -616,6 +678,7 @@ app.post('/api/orders', (req, res) => {
     const result = db.prepare('INSERT INTO orders (items, total, created_at, status, username, payment_mode, payment_status, shipping_address, shipping_phone, shipping_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(JSON.stringify(items), total, createdAt, 'Pending', cleanUser, paymentMode || 'Online', payStatus, finalShipTo, finalShipPhone, finalShipState);
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, orderId: result.lastInsertRowid });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -655,6 +718,8 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     } catch(e) {}
 
     db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ?").run(orderId);
+    
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: "Order cancelled and stock restored correctly" });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -665,6 +730,8 @@ app.post('/api/orders/:id/return', (req, res) => {
   try {
     const orderId = Number(req.params.id);
     db.prepare("UPDATE orders SET status = 'Return Requested' WHERE id = ?").run(orderId);
+    
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: "Return request submitted successfully" });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -714,6 +781,8 @@ const updateStatusHandler = (req, res) => {
     }
 
     db.prepare('UPDATE orders SET status = ?, payment_status = ? WHERE id = ?').run(targetStatus, targetPayStatus, orderId);
+    
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: `Order #${orderId} updated to [${targetStatus} | ${targetPayStatus}]!` });
   } catch (err) {
     console.error('Order status update error:', err);
@@ -799,6 +868,7 @@ app.post(['/api/retailers/repay-credit', '/api/repay-credit'], (req, res) => {
     const createdAt = new Date().toISOString();
     db.prepare('INSERT INTO credit_repayments (username, amount, created_at) VALUES (?, ?, ?)').run(cleanUser, numAmount, createdAt);
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: `Repayment of ₹${numAmount.toLocaleString('en-IN')} recorded successfully!` });
   } catch (err) {
     res.json({ success: false, message: err.message });
@@ -911,6 +981,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
 
     try { fs.unlinkSync(req.file.path); } catch(e){}
 
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ success: true, message: 'Data restored successfully! All orders, products and dealers are back.' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Restore failed: ' + err.message });
@@ -1000,6 +1071,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     });
 
     runTransaction(items);
+    setImmediate(() => syncDatabaseToGitHub());
     res.json({ 
       success: true, 
       message: `Successfully synced! (Updated: ${updated}, Auto-Added: ${inserted})` 
@@ -1057,6 +1129,7 @@ app.get('/api/busy/export-orders', (req, res) => {
       }
     });
 
+    res.setHeader('Content-Type', 'text/css'); // Safe fallback or text/csv
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=BUSY_Sales_Orders.csv');
     return res.status(200).send(csv);
@@ -1076,13 +1149,40 @@ app.get('/api/admin/clear-orders', (req, res) => {
 
   try {
     db.prepare('DELETE FROM orders').run();
+    setImmediate(() => syncDatabaseToGitHub());
     res.send("All orders have been successfully cleared/deleted.");
   } catch (err) {
     res.status(500).send("Error clearing orders: " + err.message);
   }
 });
 
-// 8. Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Startup: Restore Database from GitHub if missing/empty on Render, then start server
+async function restoreDbFromGitHubOnStartup() {
+  const dbPath = path.join(__dirname, 'shailputri.db');
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return;
+
+  try {
+    const url = `https://api.github.com/repos/banti8544/shailputri-agro/contents/shailputri.db`;
+    const res = await fetch(url, {
+      headers: { "Authorization": `Bearer ${token}`, "User-Agent": "NodeJS-AutoSync" }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.content) {
+        const buffer = Buffer.from(data.content, 'base64');
+        fs.writeFileSync(dbPath, buffer);
+        console.log("✅ Database successfully restored from GitHub on startup!");
+      }
+    }
+  } catch(e) {
+    console.log("ℹ️ Starting with fresh local database.");
+  }
+}
+
+// 8. Start Server with Auto-Restore from GitHub
+restoreDbFromGitHubOnStartup().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });
