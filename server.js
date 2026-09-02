@@ -111,6 +111,7 @@ addCol('retailers', 'discount_percent', 'INTEGER DEFAULT 0');
 addCol('retailers', 'credit_limit', 'INTEGER DEFAULT 50000');
 
 addCol('products', 'hsn', "TEXT DEFAULT '1006'");
+addCol('products', 'unit', "TEXT DEFAULT 'Pcs.'");
 addCol('products', 'gst_rate', 'INTEGER DEFAULT 5');
 addCol('products', 'image_url', "TEXT DEFAULT 'images/placeholder.png'");
 
@@ -384,7 +385,7 @@ app.post('/api/retailers/update-scheme', (req, res) => {
   }
 });
 
-// 5. Products APIs
+// 5. Products APIs (Includes 'unit' column support)
 app.get('/api/products', (req, res) => {
   try {
     const rawUser = req.query.username || '';
@@ -412,6 +413,7 @@ app.get('/api/products', (req, res) => {
         sku: p.sku,
         pack: p.pack || 'Standard',
         hsn: p.hsn || '1006',
+        unit: p.unit || 'Pcs.',
         gst_rate: cleanGst,
         originalPrice: origPrice,
         price: discountedPrice,
@@ -430,7 +432,7 @@ app.get('/api/products', (req, res) => {
 // Add New Product with Image
 app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
   try {
-    const { name, sku, pack, price, stock, category, hsn, gst_rate } = req.body;
+    const { name, sku, pack, price, stock, category, hsn, gst_rate, unit } = req.body;
     let imagePath = 'images/placeholder.png';
 
     if (req.file) {
@@ -441,8 +443,8 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
     const cleanGst = sanitizeGst(gst_rate);
 
     db.prepare(`
-      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate, unit) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       name || 'New Product', 
       sku || name || 'SKU-' + Date.now(), 
@@ -452,7 +454,8 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
       category || "General", 
       imagePath, 
       hsn || "1006", 
-      cleanGst
+      cleanGst,
+      unit || 'Pcs.'
     );
 
     res.json({ success: true, message: "Product added successfully with image!" });
@@ -462,7 +465,7 @@ app.post('/api/products/add', uploadImage.single('image'), (req, res) => {
   }
 });
 
-// Product Update with Image & GitHub Auto-Sync (Supports PUT & POST)
+// Product Update with Image & GitHub Auto-Sync
 const handleProductUpdate = (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -471,13 +474,14 @@ const handleProductUpdate = (req, res) => {
       return res.status(404).json({ success: false, message: 'Product ID not found: ' + id });
     }
 
-    const { name, category, price, stock, hsn, gst_rate } = req.body;
+    const { name, category, price, stock, hsn, gst_rate, unit } = req.body;
 
     const finalName = (name !== undefined && name !== '') ? name : existing.name;
     const finalCat = (category !== undefined && category !== '') ? category : existing.category;
     const finalPrice = (price !== undefined && price !== '') ? (parseInt(price) || 0) : existing.price;
     const finalStock = (stock !== undefined && stock !== '') ? (parseInt(stock) || 0) : existing.stock;
     const finalHsn = (hsn !== undefined && hsn !== '') ? hsn : (existing.hsn || '1006');
+    const finalUnit = (unit !== undefined && unit !== '') ? unit : (existing.unit || 'Pcs.');
     const finalGst = (gst_rate !== undefined && gst_rate !== '') ? sanitizeGst(gst_rate) : sanitizeGst(existing.gst_rate);
 
     let finalImageUrl = existing.image_url;
@@ -490,9 +494,9 @@ const handleProductUpdate = (req, res) => {
 
     db.prepare(`
       UPDATE products 
-      SET name = ?, category = ?, price = ?, stock = ?, hsn = ?, gst_rate = ?, image_url = ? 
+      SET name = ?, category = ?, price = ?, stock = ?, hsn = ?, gst_rate = ?, unit = ?, image_url = ? 
       WHERE id = ?
-    `).run(finalName, finalCat, finalPrice, finalStock, finalHsn, finalGst, finalImageUrl, id);
+    `).run(finalName, finalCat, finalPrice, finalStock, finalHsn, finalGst, finalUnit, finalImageUrl, id);
 
     if (uploadedFileName && req.file && req.file.path) {
       syncImageToGitHub(req.file.path, uploadedFileName);
@@ -556,6 +560,7 @@ app.get('/api/orders', (req, res) => {
   }
 });
 
+// 1. Order Create (Deduct Stock Accurately)
 app.post('/api/orders', (req, res) => {
   try {
     const { items, total, username, paymentMode, shippingAddress, shippingPhone, shippingState } = req.body;
@@ -571,29 +576,25 @@ app.post('/api/orders', (req, res) => {
 
     const demandMap = {};
     items.forEach(item => {
-      const pid = item.id;
-      if (!demandMap[pid]) demandMap[pid] = { id: pid, name: item.name, requiredQty: 0 };
+      const pid = Number(item.id);
+      if (!demandMap[pid]) {
+        demandMap[pid] = { id: pid, name: item.name, requiredQty: 0 };
+      }
       demandMap[pid].requiredQty += 1;
     });
 
     for (const pid of Object.keys(demandMap)) {
       const demanded = demandMap[pid];
-      let prod = null;
-      if (demanded.id) {
-        prod = db.prepare('SELECT id, name, stock FROM products WHERE id = ?').get(demanded.id);
-      } else {
-        prod = db.prepare('SELECT id, name, stock FROM products WHERE name = ?').get(demanded.name);
-      }
+      const prod = db.prepare('SELECT id, name, stock FROM products WHERE id = ?').get(demanded.id);
 
       if (!prod) {
         return res.json({ success: false, message: `Product "${demanded.name}" not found in catalog!` });
       }
 
-      const availableStock = prod.stock || 0;
-      if (availableStock < demanded.requiredQty) {
+      if ((prod.stock || 0) < demanded.requiredQty) {
         return res.json({ 
           success: false, 
-          message: `Insufficient Stock for "${prod.name}"! Available Stock: ${availableStock} case(s), but requested: ${demanded.requiredQty} case(s).` 
+          message: `Insufficient Stock for "${prod.name}"! Available: ${prod.stock}, Requested: ${demanded.requiredQty}` 
         });
       }
     }
@@ -606,13 +607,9 @@ app.post('/api/orders', (req, res) => {
       db.prepare('UPDATE retailers SET credit_limit = credit_limit - ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(total, cleanUser, '@' + cleanUser);
     }
 
+    const deductStmt = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
     for (const pid of Object.keys(demandMap)) {
-      const demanded = demandMap[pid];
-      if (demanded.id) {
-        db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(demanded.requiredQty, demanded.id);
-      } else {
-        db.prepare('UPDATE products SET stock = stock - ? WHERE name = ?').run(demanded.requiredQty, demanded.name);
-      }
+      deductStmt.run(demandMap[pid].requiredQty, Number(pid));
     }
 
     const payStatus = (paymentMode === 'Credit') ? 'Unpaid' : 'Paid';
@@ -625,6 +622,7 @@ app.post('/api/orders', (req, res) => {
   }
 });
 
+// 2. Order Cancel (Restore Exact Stock Only Once)
 app.post('/api/orders/:id/cancel', (req, res) => {
   try {
     const orderId = Number(req.params.id);
@@ -642,15 +640,22 @@ app.post('/api/orders/:id/cancel', (req, res) => {
 
     try {
       const items = JSON.parse(order.items || '[]');
+      const restoreMap = {};
       items.forEach(item => {
-        if (item.id) {
-          db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
+        const pid = Number(item.id);
+        if (pid) {
+          restoreMap[pid] = (restoreMap[pid] || 0) + 1;
         }
       });
+
+      const restoreStmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
+      for (const pid of Object.keys(restoreMap)) {
+        restoreStmt.run(restoreMap[pid], Number(pid));
+      }
     } catch(e) {}
 
     db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ?").run(orderId);
-    res.json({ success: true, message: "Order cancelled successfully" });
+    res.json({ success: true, message: "Order cancelled and stock restored correctly" });
   } catch (err) {
     res.json({ success: false, message: err.message });
   }
@@ -693,11 +698,18 @@ const updateStatusHandler = (req, res) => {
 
       try {
         const items = JSON.parse(order.items || '[]');
+        const restoreMap = {};
         items.forEach(item => {
-          if (item.id) {
-            db.prepare('UPDATE products SET stock = stock + 1 WHERE id = ?').run(item.id);
+          const pid = Number(item.id);
+          if (pid) {
+            restoreMap[pid] = (restoreMap[pid] || 0) + 1;
           }
         });
+
+        const restoreStmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
+        for (const pid of Object.keys(restoreMap)) {
+          restoreStmt.run(restoreMap[pid], Number(pid));
+        }
       } catch(e) {}
     }
 
@@ -867,11 +879,11 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
     if (Array.isArray(data.products)) {
       db.prepare('DELETE FROM products').run();
       const insertProd = db.prepare(`
-        INSERT INTO products (id, name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO products (id, name, sku, pack, price, stock, category, image_url, hsn, gst_rate, unit)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       data.products.forEach(p => {
-        insertProd.run(p.id, p.name, p.sku, p.pack || 'Standard', p.price, p.stock, p.category, p.image_url, p.hsn, sanitizeGst(p.gst_rate));
+        insertProd.run(p.id, p.name, p.sku, p.pack || 'Standard', p.price, p.stock, p.category, p.image_url, p.hsn, sanitizeGst(p.gst_rate), p.unit || 'Pcs.');
       });
     }
 
@@ -905,7 +917,7 @@ app.post('/api/admin/restore-json', backupUpload.single('backupFile'), (req, res
   }
 });
 
-// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Safe Image + HSN + GST Auto-Update)
+// BUSY Direct Catalog Sync Endpoint (Category + Stock + Price + Safe Image + HSN + GST + Unit)
 app.post('/api/busy/sync-catalog', (req, res) => {
   const secretKey = req.headers['x-busy-key'];
   if (secretKey !== "Shailputri@BusySync2026") {
@@ -918,9 +930,8 @@ app.post('/api/busy/sync-catalog', (req, res) => {
   }
 
   try {
-    const findStmt = db.prepare('SELECT id, price, category, image_url, hsn, gst_rate FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+    const findStmt = db.prepare('SELECT id, price, category, image_url, hsn, gst_rate, unit FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
     
-    // Protected update: Never overwrite custom uploaded images with placeholder
     const updateStmt = db.prepare(`
       UPDATE products 
       SET stock = ?, 
@@ -928,6 +939,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
           category = CASE WHEN ? != '' THEN ? ELSE category END,
           hsn = CASE WHEN ? != '' THEN ? ELSE hsn END,
           gst_rate = CASE WHEN ? >= 0 THEN ? ELSE gst_rate END,
+          unit = CASE WHEN ? != '' THEN ? ELSE unit END,
           image_url = CASE 
             WHEN ? != '' AND ? NOT LIKE '%placeholder%' THEN ? 
             ELSE image_url 
@@ -936,8 +948,8 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     `);
 
     const insertStmt = db.prepare(`
-      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate)
-      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate, unit)
+      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, ?, ?, ?)
     `);
     
     let updated = 0;
@@ -952,6 +964,7 @@ app.post('/api/busy/sync-catalog', (req, res) => {
         const categoryVal = (item.category || 'Agro Commodities').trim();
         const hsnVal = String(item.hsn || '').trim();
         const cleanGst = sanitizeGst(item.gst_rate);
+        const unitVal = (item.unit || 'Pcs.').trim();
         const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
 
         if (!cleanName) continue;
@@ -963,7 +976,8 @@ app.post('/api/busy/sync-catalog', (req, res) => {
             priceVal, priceVal, 
             categoryVal, categoryVal, 
             hsnVal, hsnVal, 
-            cleanGst, cleanGst, 
+            cleanGst, cleanGst,
+            unitVal, unitVal, 
             imgVal, imgVal, imgVal,
             existing.id
           );
@@ -977,7 +991,8 @@ app.post('/api/busy/sync-catalog', (req, res) => {
             categoryVal, 
             imgVal, 
             hsnVal || '1006', 
-            cleanGst
+            cleanGst,
+            unitVal
           );
           inserted++;
         }
@@ -1029,15 +1044,16 @@ app.get('/api/busy/export-orders', (req, res) => {
       parsedItems.forEach(it => {
         const iName = (it.name || 'Agro Item').replace(/,/g, ' ');
         const iPrice = Number(it.price) || 0;
+        const iUnit = it.unit || 'Pcs.';
         if (!itemSummary[iName]) {
-          itemSummary[iName] = { qty: 0, price: iPrice };
+          itemSummary[iName] = { qty: 0, price: iPrice, unit: iUnit };
         }
         itemSummary[iName].qty += 1;
       });
 
       for (const [name, data] of Object.entries(itemSummary)) {
         const lineTotal = data.qty * data.price;
-        csv += `${order.id},${orderDate},"${party}","${name}",${data.qty},Case,${data.price},${lineTotal}\n`;
+        csv += `${order.id},${orderDate},"${party}","${name}",${data.qty},${data.unit},${data.price},${lineTotal}\n`;
       }
     });
 
