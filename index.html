@@ -166,6 +166,7 @@
         </div>
       </div>
 
+      <!-- कार्ट सेक्शन (यहाँ सभी विकल्प और ऑर्डर प्लेस बटन सही जगह पर हैं) -->
       <section id="cart-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Your Wholesale Cart</h2>
         <div id="cart-items">
@@ -227,7 +228,9 @@
           </div>
         </div>
 
-        <button id="print-ledger-btn" class="btn" style="background:#102a43; color:white; margin-bottom:15px; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print Statement / PDF</button>
+        <!-- मुख्य ऑर्डर प्लेस करने का बटन -->
+        <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer;">Place Wholesale Order</button>
+        
         <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
       </section>
 
@@ -414,21 +417,7 @@
         <button id="tab-btn-upi" onclick="switchPaymentTab('upi')" style="flex: 1; padding: 8px 4px; background: #102a43; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">📱 UPI QR</button>
         <button id="tab-btn-cards" onclick="switchPaymentTab('cards')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">💳 Cards</button>
         <button id="tab-btn-netbanking" onclick="switchPaymentTab('netbanking')" style="flex: 1; padding: 8px 4px; background: #e2e8f0; color: #334155; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.82rem;">🏦 Net Banking</button>
-        <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 1rem;">Place Wholesale Order</button>
       </div>
-      <div id="payment-mode-box" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;">
-          <h4 style="margin: 0 0 0.8rem 0; color: var(--navy);">Select Payment Method:</h4>
-          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Online" checked> <strong>Online / UPI / Cards / NetBanking</strong></label>
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="COD"> <strong>Cash on Delivery (COD)</strong></label>
-            <label style="cursor: pointer;"><input type="radio" name="paymentMethod" value="Credit"> <strong>Pay via Credit Limit (उधारी)</strong></label>
-          </div>
-        </div>
-
-        <!-- ✅ 'Place Wholesale Order' बटन अब अपनी सही जगह (कार्ट पेज पर) आ गया है -->
-        <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer; display: none;">Place Wholesale Order</button>
-        
-        <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
 
       <!-- 1. UPI QR View -->
       <div id="pg-tab-upi" style="text-align: center;">
