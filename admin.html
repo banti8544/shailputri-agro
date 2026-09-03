@@ -69,13 +69,13 @@
         ⚠️ लो स्टॉक अलर्ट: निम्नलिखित आइटम्स का स्टॉक समाप्त होने वाला है: <span id="dashboard-low-stock-names"></span>
       </div>
 
-      <!-- 0. Database Backup & BUSY Export Box -->
-      <div class="card-box" style="background: #fffbeb; border: 1px solid #fef08a; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem;">
+   <!-- 0. Database Backup, BUSY Export & Dealer CSV Sync Box -->
+      <div class="card-box" style="background: #fffbeb; border: 1px solid #fef08a; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
             <h3 style="margin: 0 0 4px 0; color: #854d0e; font-size: 1.1rem;">💾 Data Safety & BUSY Integration</h3>
             <p style="margin: 0; font-size: 0.85rem; color: #713f12;">
-              डेटाबेस बैकअप लें या वेबसाइट के सभी नए ऑर्डर्स को सीधे BUSY Sales Order में इम्पोर्ट करने के लिए डाउनलोड करें।
+              डेटाबेस बैकअप लें, ऑर्डर्स BUSY में एक्सपोर्ट करें, या BUSY की CSV फाइल अपलोड करके डीलर्स सिंक करें।
             </p>
           </div>
           
@@ -94,6 +94,20 @@
             </label>
             <input type="file" id="restore-file-input" accept=".json" onchange="restoreBackupFile(event)" style="display: none;">
           </div>
+        </div>
+
+        <!-- 🟢 यहाँ BUSY CSV अपलोड करने का फॉर्म जोड़ दिया गया है -->
+        <div style="margin-top: 1.2rem; background: #fff; padding: 1rem; border-radius: 6px; border: 1px solid #fde047;">
+          <h4 style="margin: 0 0 4px 0; color: #854d0e; font-size: 0.95rem;">📂 Import Dealers from BUSY (CSV Upload)</h4>
+          <p style="font-size: 0.8rem; color: #713f12; margin: 0 0 8px 0;">BUSY से पार्टी लिस्ट CSV फॉर्मेट में डाउनलोड करके यहाँ अपलोड करें, ताकि वेबसाइट पर GSTIN डालते ही फर्म का नाम और एड्रेस ऑटोमैटिक आ जाए।</p>
+          
+          <form id="busy-upload-form" onsubmit="uploadBusyData(event)" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="file" id="busyFile" accept=".csv" required style="padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.85rem;">
+            <button type="submit" style="background: #854d0e; color: white; border: none; padding: 7px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">
+              🚀 Upload & Sync Dealers
+            </button>
+          </form>
+          <div id="upload-status-msg" style="margin-top: 6px; font-weight: bold; font-size: 0.82rem;"></div>
         </div>
 
         <!-- Dealer Sales Summary Box -->
