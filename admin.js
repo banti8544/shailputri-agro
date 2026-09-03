@@ -605,6 +605,23 @@ function printGSTInvoice(orderId) {
   `);
   win.document.close();
 }
+window.sendPaymentReminder = function(phone, businessName, creditLimit) {
+  let cleanPhone = (phone || '').replace(/\D/g, '');
+  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+  if (!cleanPhone || cleanPhone.length < 12) {
+    alert("Invalid phone number for this dealer.");
+    return;
+  }
+
+  const message = `*🔔 भुगतान रिमाइंडर (Payment Reminder)*\n` +
+                  `प्रिय *${businessName}* जी,\n\n` +
+                  `शैलपुत्री एग्रो फूड्स प्राइवेट लिमिटेड की ओर से सूचित किया जाता है कि आपकी बकाया उधारी / क्रेडिट लिमिट का भुगतान शेष है। कृपया जल्द से जल्द भुगतान करने की कृपा करें।\n\n` +
+                  `हेल्पलाइन: +91 8544241851`;
+
+  const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+};
 
 // Initial Data Load
 loadCompanySettings();
