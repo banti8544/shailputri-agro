@@ -826,7 +826,7 @@
       }
     }
 
-    // 3. GST API Fetch Function
+    // 3. GST API Fetch Function (Updated with Proxy)
     window.autoFetchGSTDetails = async function(gstin) {
       const cleanGstin = (gstin || "").trim().toUpperCase();
       if (cleanGstin.length !== 15) {
@@ -838,7 +838,8 @@
       if (hint) hint.textContent = "GST विवरण खोजा जा रहा है...";
 
       try {
-        const res = await fetch(`https://api.gstify.in/verify?gstin=${cleanGstin}`);
+        // यहाँ हमने डायरेक्ट URL की जगह अपने सर्वर का proxy route डाल दिया है
+        const res = await fetch(`/api/proxy/gst/${cleanGstin}`);
         const data = await res.json();
 
         if (data && (data.businessName || data.lgnm || data.tradeName)) {
@@ -867,7 +868,7 @@
       }
     };
 
-    // 4. Pincode API Fetch Function
+    // 4. Pincode API Fetch Function (Updated with Proxy)
     window.autoFetchPincodeAddress = async function(pincode, addressFieldId, stateFieldId) {
       const cleanPin = (pincode || "").trim();
       const hint = document.getElementById("pincode-fetch-hint");
@@ -877,7 +878,8 @@
       if (hint) hint.textContent = "पिन कोड विवरण खोजा जा रहा है...";
 
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
+        // यहाँ भी डायरेक्ट URL की जगह अपने सर्वर का proxy route डाल दिया है
+        const res = await fetch(`/api/proxy/pincode/${cleanPin}`);
         const data = await res.json();
 
         if (data && data[0] && data[0].Status === "Success") {
@@ -903,7 +905,6 @@
       } catch (err) {
         if (hint) hint.textContent = "⚠️ एड्रेस फेच करने में विफल।";
       }
-    };
-  </script>
+    };  </script>
 </body>
 </html>
