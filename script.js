@@ -1140,18 +1140,7 @@ window.submitCreditRepayment = async function() {
   }
 };
 
-// 11. Global Logout
-window.logout = function() {
-  localStorage.removeItem("username");
-  localStorage.removeItem("businessName");
-  localStorage.removeItem("phone");
-  localStorage.removeItem("address");
-  localStorage.removeItem("state");
-  localStorage.removeItem("gstin");
-
-  loggedInUser = "";
-  loggedInBusiness = "";
-  // Credit Ledger Statement Print / PDF Function
+// 11. Print Ledger Statement / PDF Function
 window.printLedgerStatement = async function() {
   if (!loggedInUser) {
     alert("Please login to print statement.");
@@ -1197,6 +1186,11 @@ window.printLedgerStatement = async function() {
     const userState = localStorage.getItem("state") || 'Bihar';
 
     const win = window.open('', '_blank');
+    if (!win) {
+      alert("Popup blocked! Please allow popups for this site to print statement.");
+      return;
+    }
+
     win.document.write(`
       <html>
         <head>
@@ -1258,16 +1252,46 @@ window.printLedgerStatement = async function() {
     `);
     win.document.close();
   } catch (err) {
+    console.error(err);
     alert("Failed to generate ledger statement.");
   }
 };
-  window.printLedgerStatement = async function() {
+
+// 12. Global Logout
+window.logout = function() {
+  localStorage.removeItem("username");
+  localStorage.removeItem("businessName");
+  localStorage.removeItem("phone");
+  localStorage.removeItem("address");
+  localStorage.removeItem("state");
+  localStorage.removeItem("gstin");
+
+  loggedInUser = "";
+  loggedInBusiness = "";
+
+  window.location.href = "login.html";
+};
+
+// 11. Global Logout
+window.logout = function() {
+  localStorage.removeItem("username");
+  localStorage.removeItem("businessName");
+  localStorage.removeItem("phone");
+  localStorage.removeItem("address");
+  localStorage.removeItem("state");
+  localStorage.removeItem("gstin");
+
+  loggedInUser = "";
+  loggedInBusiness = "";
+  // Credit Ledger Statement Print / PDF Function
+window.printLedgerStatement = async function() {
   if (!loggedInUser) {
     alert("Please login to print statement.");
     return;
   }
 
   try {
+    // API से क्रेडिट स्टेटमेंट का पूरा डेटा मंगवाएं
     const res = await fetch('/api/retailers/credit-statement?username=' + encodeURIComponent(loggedInUser));
     const data = await res.json();
     const orders = data.orders || [];
@@ -1306,6 +1330,11 @@ window.printLedgerStatement = async function() {
     const userState = localStorage.getItem("state") || 'Bihar';
 
     const win = window.open('', '_blank');
+    if (!win) {
+      alert("Popup blocked! Please allow popups for this site to print statement.");
+      return;
+    }
+
     win.document.write(`
       <html>
         <head>
@@ -1367,9 +1396,9 @@ window.printLedgerStatement = async function() {
     `);
     win.document.close();
   } catch (err) {
+    console.error(err);
     alert("Failed to generate ledger statement.");
   }
 };
-
   window.location.href = "login.html";
 };
