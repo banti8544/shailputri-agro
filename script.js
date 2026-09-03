@@ -1335,3 +1335,20 @@ async function printCustomerInvoice(orderId) {
   `);
   win.document.close();
 }
+window.logout = function() {
+  if (confirm("क्या आप वाकई लॉगआउट करना चाहते हैं?")) {
+    localStorage.removeItem("username");
+    localStorage.removeItem("businessName");
+    localStorage.removeItem("phone");
+    localStorage.removeItem("address");
+    localStorage.removeItem("state");
+    localStorage.removeItem("gstin");
+    
+    loggedInUser = "";
+    loggedInBusiness = "";
+    currentCreditLimit = 0;
+    
+    alert("सफलतापूर्वक लॉगआउट हो गए!");
+    window.location.href = "login.html"; // या index.html पर रीडायरेक्ट कर सकते हैं
+  }
+};
