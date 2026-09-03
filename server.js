@@ -1209,3 +1209,26 @@ app.get('/api/proxy/pincode/:pincode', async (req, res) => {
     res.status(500).json({ success: false, message: "Pincode fetch failed from server" });
   }
 });
+// server.js के अंदर
+app.get('/api/busy/fetch-gst/:gstin', async (req, res) => {
+  try {
+    const searchGstin = req.params.gstin.trim().toUpperCase();
+    
+    // यहाँ अपनी डेटाबेस (या BUSY सिंक किए गए डेटा) में GSTIN से फर्म का नाम खोजें
+    // उदाहरण के लिए, यदि आपकी 'retailers' टेबल में gstin और business_name सेव रहता है:
+    db.get(`SELECT business_name, state, address FROM retailers WHERE gstin = ?`, [searchGstin], (err, row) => {
+      if (err || !row) {
+        // यदि लोकल डेटाबेस में न मिले, तो आप BUSY के डेटा से मिलान करवा सकते हैं
+        return res.json({ success: false, message: "GSTIN BUSY डेटाबेस में नहीं मिला।" });
+      }
+      res.json({
+        success: true,
+        businessName: row.business_name,
+        state: row.state,
+        address: row.address
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error during BUSY GST fetch" });
+  }
+});
