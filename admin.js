@@ -692,3 +692,17 @@ document.addEventListener("DOMContentLoaded", () => {
     loadDealerSalesSummary();
   }
 });
+// admin.js के सबसे नीचे इसे रखें:
+document.addEventListener("DOMContentLoaded", () => {
+  loadCompanySettings();
+  loadAdminProducts().then(() => {
+    if (typeof checkLowStockAlerts === 'function' && globalProducts) {
+      checkLowStockAlerts(globalProducts);
+    }
+  });
+  fetchOrders();
+  loadRetailers();
+  if (typeof loadDealerSalesSummary === 'function') {
+    loadDealerSalesSummary();
+  }
+});
