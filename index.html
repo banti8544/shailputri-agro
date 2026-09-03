@@ -166,7 +166,7 @@
         </div>
       </div>
 
-      <!-- कार्ट सेक्शन (यहाँ सभी विकल्प और ऑर्डर प्लेस बटन सही जगह पर हैं) -->
+      <!-- कार्ट सेक्शन -->
       <section id="cart-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Your Wholesale Cart</h2>
         <div id="cart-items">
@@ -228,15 +228,16 @@
           </div>
         </div>
 
-        <!-- मुख्य ऑर्डर प्लेस करने का बटन -->
         <button id="place-order-btn" onclick="placeOrder()" style="width: 100%; background: var(--navy); color: white; padding: 0.8rem; border: none; border-radius: 4px; font-weight: bold; font-size: 1.1rem; cursor: pointer;">Place Wholesale Order</button>
         
         <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
       </section>
 
+      <!-- लेजर और इनवॉइस सेक्शन (यहाँ इनवॉइस बटन जोड़ा गया है) -->
       <section id="ledger-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy);">My Ledger & Invoices</h2>
-        <button onclick="printLedgerStatement()" class="btn" style="background:#102a43; color:white; margin-bottom:15px; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print Statement / PDF</button>
+        <button onclick="printLedgerStatement()" class="btn" style="background:#102a43; color:white; margin-bottom:15px; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print Ledger Statement / PDF</button>
+        
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 6px;">
             <small>Total Orders</small>
@@ -247,7 +248,9 @@
             <h3 id="ledger-total-amount" style="margin: 4px 0 0 0;">₹0</h3>
           </div>
         </div>
-        <div id="recent-orders-list">Loading...</div>
+
+        <h3 style="color: var(--navy); font-size: 1.1rem; margin-bottom: 8px;">📦 Order History & Tax Invoices</h3>
+        <div id="recent-orders-list">Loading orders and invoices...</div>
       </section>
 
       <section id="profile-section" style="display: none; max-width: 650px; margin: 0 auto;">
@@ -490,6 +493,108 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
+    }
+
+    // Invoice Generator Helper Function for Storefront
+    function printGSTInvoice(orderId) {
+      if (typeof globalOrders === 'undefined' || !globalOrders) {
+        alert("Orders data not loaded yet.");
+        return;
+      }
+      const order = globalOrders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const sellerState = 'Assam';
+      const buyerState = (order.shipping_state || order.billing_state || 'Bihar').trim().toLowerCase();
+      const isSameState = (sellerState.toLowerCase() === buyerState);
+
+      let rawItems = [];
+      try { rawItems = JSON.parse(order.items); } catch(e) { rawItems = [{ name: 'Products', price: order.total }]; }
+
+      const grouped = {};
+      rawItems.forEach(i => {
+        const k = i.name;
+        if (!grouped[k]) grouped[k] = { ...i, qty: 1 };
+        else grouped[k].qty += 1;
+      });
+
+      let netTaxableTotal = 0;
+      let totalCGST = 0, totalSGST = 0, totalIGST = 0;
+      let rowsHtml = '';
+
+      Object.values(grouped).forEach((item, idx) => {
+        let gstRate = item.gst_rate || 5;
+        if (gstRate > 100) gstRate = Math.round(gstRate / 100);
+
+        const itemFinalTotal = item.price * item.qty;
+        const baseTaxable = Math.round((itemFinalTotal / (1 + (gstRate / 100))) * 100) / 100;
+        const itemTaxAmount = Math.round((itemFinalTotal - baseTaxable) * 100) / 100;
+        netTaxableTotal += baseTaxable;
+
+        let taxBreakup = '';
+        if (isSameState) {
+          const half = Math.round((itemTaxAmount / 2) * 100) / 100;
+          totalCGST += half;
+          totalSGST += half;
+          taxBreakup = `CGST (${gstRate/2}%): ₹${half}<br>SGST (${gstRate/2}%): ₹${half}`;
+        } else {
+          totalIGST += itemTaxAmount;
+          taxBreakup = `IGST (${gstRate}%): ₹${itemTaxAmount}`;
+        }
+
+        rowsHtml += `
+          <tr>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1006'}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty} Pcs.</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">${taxBreakup}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;"><strong>₹${itemFinalTotal.toFixed(2)}</strong></td>
+          </tr>
+        `;
+      });
+
+      const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
+
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <html>
+          <head>
+            <title>GST Tax Invoice - ORD-${order.id}</title>
+            <style>
+              body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; margin: 0 auto; max-width: 920px; }
+              .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th { background: #102a43; color: white; padding: 7px; font-size: 12px; border: 1px solid #102a43; }
+              @media print { .no-print { display: none; } }
+            </style>
+          </head>
+          <body>
+            <div class="header-container">
+              <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px;">SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h1>
+              <p style="margin: 2px 0; font-size: 12px; color: #334155;">Purnia, Bihar & Guwahati, Assam</p>
+            </div>
+            <h3 style="text-align: center; text-decoration: underline; color: #102a43;">TAX INVOICE (ORD-${order.id})</h3>
+            <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')} | <strong>Payment:</strong> ${order.payment_mode}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Item Description</th><th>HSN</th><th>Qty</th><th>Taxable (₹)</th><th>GST Split</th><th>Total (₹)</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+            <div style="text-align: right; margin-top: 15px; font-size: 16px; font-weight: bold;">
+              Grand Total: ₹${calculatedGrandTotal.toFixed(2)}
+            </div>
+            <div style="text-align: center; margin-top: 25px;" class="no-print">
+              <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">🖨️ Print / Save PDF</button>
+            </div>
+          </body>
+        </html>
+      `);
+      win.document.close();
     }
   </script>
 </body>
