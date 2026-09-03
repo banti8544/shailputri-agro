@@ -42,7 +42,8 @@
         <input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="off" style="width: 100%; padding: 0.6rem; margin-top: 0.3rem; box-sizing: border-box;">
       </div>
 
-      <div id="low-stock-alert-banner" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:10px 15px; border-radius:6px; margin-bottom:15px; font-weight:bold;">
+      <!-- Low Stock Alert Banner (Added) -->
+      <div id="low-stock-alert-banner" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:10px 15px; border-radius:6px; margin-bottom:15px; font-weight:bold; text-align:left; font-size:0.85rem;">
         ⚠️ चेतावनी: निम्नलिखित प्रोडक्ट्स का स्टॉक कम हो गया है: <span id="low-stock-names"></span>
       </div>
 
@@ -62,6 +63,11 @@
     </header>
 
     <div class="container">
+
+      <!-- Low Stock Banner inside Dashboard -->
+      <div id="dashboard-low-stock-banner" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 18px; border-radius:8px; margin-bottom:1.5rem; font-weight:bold;">
+        ⚠️ लो स्टॉक अलर्ट: निम्नलिखित आइटम्स का स्टॉक समाप्त होने वाला है: <span id="dashboard-low-stock-names"></span>
+      </div>
 
       <!-- 0. Database Backup & BUSY Export Box -->
       <div class="card-box" style="background: #fffbeb; border: 1px solid #fef08a; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem;">
@@ -389,6 +395,31 @@
       window.location.reload();
     }
 
+    // Low Stock Checking Function Added
+    function checkLowStockProducts(products) {
+      // यदि स्टॉक 5 या उससे कम है तो उसे Low Stock माना जाएगा
+      const lowStockItems = products.filter(p => Number(p.stock ?? 0) <= 5);
+      
+      const loginBanner = document.getElementById("low-stock-alert-banner");
+      const loginNamesSpan = document.getElementById("low-stock-names");
+      
+      const dashBanner = document.getElementById("dashboard-low-stock-banner");
+      const dashNamesSpan = document.getElementById("dashboard-low-stock-names");
+
+      if (lowStockItems.length > 0) {
+        const namesText = lowStockItems.map(p => `${p.name} (Stock: ${p.stock})`).join(', ');
+        
+        if (loginNamesSpan) loginNamesSpan.textContent = namesText;
+        if (loginBanner) loginBanner.style.display = "block";
+
+        if (dashNamesSpan) dashNamesSpan.textContent = namesText;
+        if (dashBanner) dashBanner.style.display = "block";
+      } else {
+        if (loginBanner) loginBanner.style.display = "none";
+        if (dashBanner) dashBanner.style.display = "none";
+      }
+    }
+
     async function restoreBackupFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -530,6 +561,7 @@
         globalProducts = data.products || [];
         refreshCategoriesUI(globalProducts);
         renderAdminProducts(globalProducts);
+        checkLowStockProducts(globalProducts); // Low Stock Checker Call Added
       } catch (err) {
         if (retryCount < 3) {
           setTimeout(() => loadAdminProducts(retryCount + 1), 2000);
@@ -935,11 +967,11 @@
         });
 
         let html = `<table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-                      <tr style="background:#f1f5f9;">
-                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:left;">Dealer / Firm Name</th>
-                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:center;">Total Orders</th>
-                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:right;">Total Purchase (₹)</th>
-                      </tr>`;
+                    <tr style="background:#f1f5f9;">
+                      <th style="padding:6px; border:1px solid #cbd5e1; text-align:left;">Dealer / Firm Name</th>
+                      <th style="padding:6px; border:1px solid #cbd5e1; text-align:center;">Total Orders</th>
+                      <th style="padding:6px; border:1px solid #cbd5e1; text-align:right;">Total Purchase (₹)</th>
+                    </tr>`;
         
         let hasData = false;
         for (const [firm, data] of Object.entries(summaryMap)) {
@@ -960,7 +992,6 @@
       }
     }
 
-    // 6. Master Invoice Generator (With Qty Unit)
     function printGSTInvoice(orderId) {
       const order = globalOrders.find(o => o.id === orderId);
       if (!order) return;
