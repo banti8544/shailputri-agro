@@ -828,46 +828,43 @@
 
     // 3. GST API Fetch Function (Updated with Proxy)
     window.autoFetchGSTDetails = async function(gstin) {
-      const cleanGstin = (gstin || "").trim().toUpperCase();
-      if (cleanGstin.length !== 15) {
-        alert("कृपया सही 15 अंकों का GSTIN दर्ज करें।");
-        return;
+  const cleanGstin = (gstin || "").trim().toUpperCase();
+  if (cleanGstin.length !== 15) {
+    alert("कृपया सही 15 अंकों का GSTIN दर्ज करें।");
+    return;
+  }
+
+  const hint = document.getElementById("gst-state-hint");
+  if (hint) hint.textContent = "BUSY डेटाबेस से नाम खोजा जा रहा है...";
+
+  try {
+    const res = await fetch(`/api/busy/fetch-gst/${cleanGstin}`);
+    const data = await res.json();
+
+    if (data && data.success) {
+      if (data.businessName) {
+        document.getElementById("edit-business").value = data.businessName;
       }
-
-      const hint = document.getElementById("gst-state-hint");
-      if (hint) hint.textContent = "GST विवरण खोजा जा रहा है...";
-
-      try {
-        // यहाँ हमने डायरेक्ट URL की जगह अपने सर्वर का proxy route डाल दिया है
-        const res = await fetch(`/api/proxy/gst/${cleanGstin}`);
-        const data = await res.json();
-
-        if (data && (data.businessName || data.lgnm || data.tradeName)) {
-          const firmName = data.businessName || data.tradeName || data.lgnm;
-          document.getElementById("edit-business").value = firmName;
-          
-          if (data.state) {
-            document.getElementById("edit-state").value = data.state;
-          }
-          if (hint) hint.textContent = "✅ GST विवरण सफलतापूर्वक फेच हो गया!";
-        } else {
-          const stateCode = cleanGstin.substring(0, 2);
-          const stateMap = {
-            "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", 
-            "09": "Uttar Pradesh", "07": "Delhi", "21": "Odisha", "16": "Tripura"
-          };
-          if (stateMap[stateCode]) {
-            document.getElementById("edit-state").value = stateMap[stateCode];
-          }
-          if (hint) hint.textContent = "✅ GST राज्य कोड डिटेक्ट किया गया।";
-        }
-      } catch (e) {
-        const stateCode = cleanGstin.substring(0, 2);
-        if (stateCode === "10") document.getElementById("edit-state").value = "Bihar";
-        if (hint) hint.textContent = "⚠️ नेटवर्क त्रुटि, लेकिन राज्य सेट कर दिया गया है।";
+      if (data.state) {
+        document.getElementById("edit-state").value = data.state;
       }
-    };
-
+      if (data.address) {
+        document.getElementById("edit-address").value = data.address;
+      }
+      if (hint) hint.textContent = "✅ BUSY से फर्म का नाम मिल गया!";
+    } else {
+      // यदि BUSY में न मिले तो कम से कम स्टेट कोड से राज्य सेट कर लें
+      const stateCode = cleanGstin.substring(0, 2);
+      const stateMap = { "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", "09": "Uttar Pradesh" };
+      if (stateMap[stateCode]) {
+        document.getElementById("edit-state").value = stateMap[stateCode];
+      }
+      if (hint) hint.textContent = "⚠️ BUSY में यह GSTIN नहीं मिला, नाम हाथ से भरें।";
+    }
+  } catch (e) {
+    if (hint) hint.textContent = "⚠️ सर्वर कनेक्ट करने में विफल।";
+  }
+};
     // 4. Pincode API Fetch Function (Updated with Proxy)
     window.autoFetchPincodeAddress = async function(pincode, addressFieldId, stateFieldId) {
       const cleanPin = (pincode || "").trim();
