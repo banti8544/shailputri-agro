@@ -835,9 +835,9 @@
       }
 
       const hint = document.getElementById("gst-state-hint");
-      if (hint) hint.textContent = "GST जांच की जा रही है...";
+      if (hint) hint.textContent = "GST विवरण खोजा जा रहा है...";
 
-      // 1. सबसे पहले स्टेट कोड से राज्य ऑटोमैटिक सेट करें
+      // 1. पहले स्टेट कोड से राज्य सेट करें
       const stateCode = cleanGstin.substring(0, 2);
       const stateMap = {
         "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", 
@@ -848,19 +848,35 @@
       }
 
       try {
-        const res = await fetch(`/api/busy/fetch-gst/${cleanGstin}`);
-        const data = await res.json();
+        // 2. पहले अपने डेटाबेस (BUSY / Retailers) में चेक करें
+        let res = await fetch(`/api/busy/fetch-gst/${cleanGstin}`);
+        let data = await res.json();
 
         if (data && data.success && data.businessName) {
           document.getElementById("edit-business").value = data.businessName;
           if (data.address) document.getElementById("edit-address").value = data.address;
-          if (hint) hint.textContent = "✅ BUSY डेटाबेस से फर्म का नाम मिल गया!";
+          if (hint) hint.textContent = "✅ डेटाबेस से फर्म का नाम मिल गया!";
+          return;
+        }
+
+        // 3. यदि लोकल डेटाबेस में न मिले, तो ऑनलाइन प्रॉक्सी API से फेच करें
+        res = await fetch(`/api/proxy/gst/${cleanGstin}`);
+        data = await res.json();
+
+        if (data && (data.businessName || data.lgnm || data.tradeName || data.taxpayerInfo?.lgnm)) {
+          const firmName = data.businessName || data.tradeName || data.lgnm || data.taxpayerInfo?.lgnm;
+          const address = data.address || data.pradr?.addr?.bno + ", " + data.pradr?.addr?.st || "";
+          
+          document.getElementById("edit-business").value = firmName;
+          if (address.trim() && address !== "undefined, undefined") {
+            document.getElementById("edit-address").value = address;
+          }
+          if (hint) hint.textContent = "✅ ऑनलाइन GST विवरण सफलतापूर्वक फेच हो गया!";
         } else {
-          // यदि ऑनलाइन डेटाबेस या BUSY में न मिले तो यूजर को हाथ से नाम लिखने दें
-          if (hint) hint.textContent = "ℹ️ यह GSTIN अभी डेटाबेस में नहीं है, कृपया अपना फर्म नाम नीचे दर्ज करें।";
+          if (hint) hint.textContent = "ℹ️ कृपया अपना फर्म नाम नीचे दर्ज करें।";
         }
       } catch (e) {
-        if (hint) hint.textContent = "ℹ️ राज्य सेट कर दिया गया है, कृपया फर्म का नाम दर्ज करें।";
+        if (hint) hint.textContent = "⚠️ नेटवर्क त्रुटि, कृपया नाम हाथ से दर्ज करें।";
       }
     };
     // 4. Pincode API Fetch Function (Updated with Proxy)
