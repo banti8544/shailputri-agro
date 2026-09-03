@@ -773,11 +773,6 @@ async function printCustomerInvoice(orderId) {
 
   const calculatedGrandTotal = netTaxableTotal + totalCGST + totalSGST + totalIGST;
 
-  const buyerBusiness = order.business_name || loggedInBusiness || 'Dealer Partner';
-  const buyerAddress = order.billing_address || localStorage.getItem("address") || 'N/A';
-  const buyerStateDisplay = order.billing_state || localStorage.getItem("state") || 'Bihar';
-  const buyerGST = order.buyer_gstin || localStorage.getItem("gstin") || 'Unregistered';
-
   const win = window.open('', '_blank');
   win.document.write(`
     <html>
@@ -821,7 +816,6 @@ async function printCustomerInvoice(orderId) {
   win.document.close();
 }
 
-// 🟢 1. WhatsApp पर ऑटोमैटिक इनवॉइस समरी भेजना (PDF-Style Text)
 window.sendWhatsAppInvoice = async function(orderId) {
   try {
     const res = await fetch('/api/orders');
@@ -1009,6 +1003,7 @@ window.submitCreditRepayment = async function() {
   }
 };
 
+// 🟢 ठीक किया हुआ प्रिंट लेजर स्टेटमेंट फंक्शन (अब पूरा लेजर और हिस्ट्री प्रिंट होगी)
 window.printLedgerStatement = async function() {
   if (!loggedInUser) {
     alert("Please login to print statement.");
@@ -1027,8 +1022,71 @@ window.printLedgerStatement = async function() {
     repayments.forEach(r => totalRepaid += (r.amount || 0));
     const currentDue = Math.max(0, totalDebit - totalRepaid);
 
+    const allTx = [];
+    orders.forEach(o => allTx.push({ type: o.status === 'Returned' ? 'RETURN' : 'DEBIT', desc: `Order #ORD-${o.id}`, amount: o.total, date: o.created_at, status: o.status }));
+    repayments.forEach(r => allTx.push({ type: 'PAY', desc: 'Paid Due Balance', amount: r.amount, date: r.created_at, status: 'Paid' }));
+    allTx.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    let rowsHtml = '';
+    allTx.forEach(tx => {
+      const date = tx.date ? new Date(tx.date).toLocaleDateString('en-GB') : '-';
+      const isPay = (tx.type === 'PAY' || tx.type === 'RETURN');
+      rowsHtml += `
+        <tr>
+          <td>${date}</td>
+          <td>${tx.desc}</td>
+          <td style="color:${isPay ? '#137333' : '#c5221f'}; font-weight:bold;">${isPay ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}</td>
+          <td>${tx.status}</td>
+        </tr>
+      `;
+    });
+
     const win = window.open('', '_blank');
-    win.document.write(`<html><body><h2>Ledger Statement</h2><p>Outstanding Due: ₹${currentDue}</p></body></html>`);
+    win.document.write(`
+      <html>
+        <head>
+          <title>Ledger Statement - ${loggedInBusiness || loggedInUser}</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; }
+            h2 { color: #102a43; border-bottom: 2px solid #102a43; padding-bottom: 5px; margin-bottom: 5px; }
+            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin: 15px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
+            th { background: #102a43; color: white; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <h2>SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h2>
+          <h3>Dealer Credit & Ledger Statement</h3>
+          <p><strong>Dealer / Firm:</strong> ${loggedInBusiness || loggedInUser} (@${loggedInUser})</p>
+          <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+          
+          <div class="box">
+            <strong>Credit Limit:</strong> ₹${Number(currentCreditLimit).toLocaleString('en-IN')} &nbsp;|&nbsp; 
+            <strong>Outstanding Due (Udhaari):</strong> <span style="color:#c5221f; font-weight:bold;">₹${currentDue.toLocaleString('en-IN')}</span>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description / Order ID</th>
+                <th>Amount (₹)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="4" style="text-align:center;">No transactions found.</td></tr>'}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 30px; text-align: center;" class="no-print">
+            <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">🖨️ Print / Save as PDF</button>
+          </div>
+        </body>
+      </html>
+    `);
     win.document.close();
   } catch (err) {
     alert("Failed to generate ledger statement.");
