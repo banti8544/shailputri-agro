@@ -696,7 +696,7 @@ async function loadDealerSalesSummary() {
         html += `<tr><td style="padding:6px; border:1px solid #cbd5e1;"><strong>${firm}</strong></td><td style="padding:6px; border:1px solid #cbd5e1; text-align:center;">${data.totalOrders}</td><td style="padding:6px; border:1px solid #cbd5e1; text-align:right; color:#15803d; font-weight:bold;">₹${data.totalAmount.toLocaleString('en-IN')}</td></tr>`;
       }
     }
-    
+
     if (!hasData) {
       html += `<tr><td colspan="3" style="text-align:center; padding:10px; color:#64748b;">No active dealer sales found.</td></tr>`;
     }
@@ -708,6 +708,14 @@ async function loadDealerSalesSummary() {
   }
 }
 
+// Initial Data Load on Page Ready (Cleaned & Fixed)
+document.addEventListener("DOMContentLoaded", () => {
+  loadCompanySettings();
+  loadAdminProducts();
+  loadOrders();
+  loadRetailers();
+  loadDealerSalesSummary();
+});
 // Initial Data Load on Page Ready
 document.addEventListener("DOMContentLoaded", () => {
   loadCompanySettings();
