@@ -16,6 +16,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateCartUI();
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  const printBtn = document.getElementById("print-ledger-btn");
+  if (printBtn) {
+    printBtn.addEventListener("click", printLedgerStatement);
+  }
+});
+
 async function loadCompanyBulkConfig() {
   try {
     const res = await fetch('/api/company-settings');
