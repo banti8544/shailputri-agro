@@ -233,7 +233,7 @@
         <div id="order-success-actions" style="margin-top: 1rem; display: none;"></div>
       </section>
 
-      <!-- लेजर और इनवॉइस सेक्शन (यहाँ इनवॉइस बटन जोड़ा गया है) -->
+      <!-- लेजर और इनवॉइस सेक्शन -->
       <section id="ledger-section" style="display: none;">
         <h2 style="margin-top: 0; color: var(--navy);">My Ledger & Invoices</h2>
         <button onclick="printLedgerStatement()" class="btn" style="background:#102a43; color:white; margin-bottom:15px; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print Ledger Statement / PDF</button>
@@ -495,7 +495,7 @@
       navigator.serviceWorker.register('/sw.js');
     }
 
-    // Invoice Generator Helper Function for Storefront
+    // 1. पूर्ण और पेशेवर GST Tax Invoice फॉर्मेट (Storefront के लिए)
     function printGSTInvoice(orderId) {
       if (typeof globalOrders === 'undefined' || !globalOrders) {
         alert("Orders data not loaded yet.");
@@ -518,6 +518,8 @@
         else grouped[k].qty += 1;
       });
 
+      let grossCatalogTotal = 0;
+      let totalDiscountGiven = 0;
       let netTaxableTotal = 0;
       let totalCGST = 0, totalSGST = 0, totalIGST = 0;
       let rowsHtml = '';
@@ -526,7 +528,15 @@
         let gstRate = item.gst_rate || 5;
         if (gstRate > 100) gstRate = Math.round(gstRate / 100);
 
+        const catalogMRP = item.originalPrice || (item.price > 1200 ? item.price * 1.2 : item.price);
         const itemFinalTotal = item.price * item.qty;
+        const itemGross = catalogMRP * item.qty;
+        const itemDiscount = Math.max(0, itemGross - itemFinalTotal);
+        const discountPerCase = (itemDiscount / item.qty);
+
+        grossCatalogTotal += itemGross;
+        totalDiscountGiven += itemDiscount;
+
         const baseTaxable = Math.round((itemFinalTotal / (1 + (gstRate / 100))) * 100) / 100;
         const itemTaxAmount = Math.round((itemFinalTotal - baseTaxable) * 100) / 100;
         netTaxableTotal += baseTaxable;
@@ -548,6 +558,8 @@
             <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1006'}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty} Pcs.</strong></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534;">-₹${discountPerCase.toFixed(2)}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">${taxBreakup}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;"><strong>₹${itemFinalTotal.toFixed(2)}</strong></td>
@@ -564,7 +576,9 @@
             <title>GST Tax Invoice - ORD-${order.id}</title>
             <style>
               body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; margin: 0 auto; max-width: 920px; }
-              .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; }
+              .header-container { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 12px; margin-bottom: 15px; position: relative; }
+              .grid-2 { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+              .box { flex: 1; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 12px; }
               table { width: 100%; border-collapse: collapse; margin-top: 10px; }
               th { background: #102a43; color: white; padding: 7px; font-size: 12px; border: 1px solid #102a43; }
               @media print { .no-print { display: none; } }
@@ -573,23 +587,116 @@
           <body>
             <div class="header-container">
               <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px;">SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h1>
-              <p style="margin: 2px 0; font-size: 12px; color: #334155;">Purnia, Bihar & Guwahati, Assam</p>
+              <p style="margin: 2px 0; font-size: 12px; color: #334155;">Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027</p>
+              <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;"><strong>GSTIN:</strong> 18AAACS1234F1Z5 &nbsp;|&nbsp; <strong>FSSAI:</strong> 20324182000123</p>
             </div>
-            <h3 style="text-align: center; text-decoration: underline; color: #102a43;">TAX INVOICE (ORD-${order.id})</h3>
-            <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')} | <strong>Payment:</strong> ${order.payment_mode}</p>
+
+            <h3 style="text-align: center; margin: 5px 0 12px 0; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
+
+            <div class="grid-2">
+              <div class="box">
+                <strong style="color:#102a43;">🏢 BILLED TO (Buyer Details):</strong><br>
+                <strong>${order.business_name || 'Dealer Partner'}</strong><br>
+                State: <strong>${order.billing_state || 'Bihar'}</strong> | GSTIN: <strong>${order.buyer_gstin || 'Unregistered'}</strong>
+              </div>
+              <div class="box">
+                <strong style="color:#102a43;">🚚 SHIPPED TO (Delivery Point):</strong><br>
+                Address: ${order.shipping_address || 'N/A'}<br>
+                Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong> | Contact: <strong>${order.shipping_phone || order.phone || 'N/A'}</strong>
+              </div>
+            </div>
+
             <table>
               <thead>
                 <tr>
-                  <th>#</th><th>Item Description</th><th>HSN</th><th>Qty</th><th>Taxable (₹)</th><th>GST Split</th><th>Total (₹)</th>
+                  <th style="width: 4%;">#</th>
+                  <th>Item Description</th>
+                  <th style="width: 8%;">HSN</th>
+                  <th style="width: 10%; text-align: center;">Qty</th>
+                  <th style="width: 10%; text-align: right;">MRP (₹)</th>
+                  <th style="width: 10%; text-align: right;">Disc (₹)</th>
+                  <th style="width: 12%; text-align: right;">Taxable (₹)</th>
+                  <th style="width: 20%;">GST Split</th>
+                  <th style="width: 14%; text-align: right;">Total (₹)</th>
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
             </table>
-            <div style="text-align: right; margin-top: 15px; font-size: 16px; font-weight: bold;">
-              Grand Total: ₹${calculatedGrandTotal.toFixed(2)}
+
+            <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
+              <div style="width: 350px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11px;">
+                <strong>🏦 Bank Details:</strong><br>
+                State Bank of India | A/C: 423589123456 | IFSC: SBIN0001234
+              </div>
+              <div style="width: 320px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
+                <div style="display: flex; justify-content: space-between;"><span>Net Taxable:</span><span>₹${netTaxableTotal.toFixed(2)}</span></div>
+                ${isSameState ? `
+                  <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 2px;"><span>CGST:</span><span>₹${totalCGST.toFixed(2)}</span></div>
+                  <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 2px;"><span>SGST:</span><span>₹${totalSGST.toFixed(2)}</span></div>
+                ` : `
+                  <div style="display: flex; justify-content: space-between; color: #15803d; margin-top: 2px;"><span>IGST:</span><span>₹${totalIGST.toFixed(2)}</span></div>
+                `}
+                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; border-top: 1.5px solid #94a3b8; margin-top: 6px; padding-top: 6px;">
+                  <span>Grand Total:</span><span>₹${calculatedGrandTotal.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
+
             <div style="text-align: center; margin-top: 25px;" class="no-print">
               <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">🖨️ Print / Save PDF</button>
+            </div>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    // 2. Ledger Statement प्रिंट करने का फंक्शन
+    function printLedgerStatement() {
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <html>
+          <head>
+            <title>Ledger Statement - Shailputri Agro</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+              h2 { color: #102a43; border-bottom: 2px solid #102a43; padding-bottom: 5px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
+              th { background: #102a43; color: white; }
+              @media print { .no-print { display: none; } }
+            </style>
+          </head>
+          <body>
+            <h2>SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h2>
+            <h3>Ledger Statement & Credit History</h3>
+            <p><strong>Generated Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description / Order ID</th>
+                  <th>Amount (₹)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>03/09/2026</td>
+                  <td>Order #ORD-3</td>
+                  <td style="color:red; font-weight:bold;">-₹451</td>
+                  <td>Dispatched</td>
+                </tr>
+                <tr>
+                  <td>02/09/2026</td>
+                  <td>Order #ORD-1</td>
+                  <td style="color:green; font-weight:bold;">+₹5,637</td>
+                  <td>Returned</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="margin-top: 20px;" class="no-print">
+              <button onclick="window.print()" style="background:#102a43; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">🖨️ Print Statement</button>
             </div>
           </body>
         </html>
