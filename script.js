@@ -670,7 +670,7 @@ window.returnCustomerOrder = async function(orderId) {
   }
 };
 
-// 7. Master Customer/Dealer Invoice Generator (With Qty Unit)
+// 7. Master Customer/Dealer Invoice Generator (Smart Tax Fix: Seller vs Buyer State)
 async function printCustomerInvoice(orderId) {
   let order = null;
   try {
@@ -694,9 +694,12 @@ async function printCustomerInvoice(orderId) {
     config = {};
   }
 
+  // Smart State Comparison (Seller State vs Shipping / Billing State)
   const sellerState = (config.state || 'Assam').trim().toLowerCase();
-  const buyerState = (order.shipping_state || order.billing_state || 'Bihar').trim().toLowerCase();
-  const isSameState = (sellerState === buyerState);
+  const buyerState = (order.shipping_state || order.billing_state || localStorage.getItem("state") || '').trim().toLowerCase();
+  
+  // If buyer state matches seller state (e.g. both Assam), use CGST + SGST. Otherwise IGST.
+  const isSameState = buyerState ? (sellerState === buyerState) : true;
 
   const bulkThreshold = config.bulk_qty_threshold || 10;
   const bulkExtraPercent = config.bulk_discount_percent !== undefined ? config.bulk_discount_percent : 3;
