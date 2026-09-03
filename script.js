@@ -1051,7 +1051,7 @@ window.printLedgerStatement = async function() {
           <style>
             body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; max-width: 900px; margin: 0 auto; }
             .header { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 10px; margin-bottom: 15px; }
-            .summary-grid { display: flex; gap: 12px; margin: 15px 0; }
+            .summary-grid { display: flex; gap: 12px; margin: 20px 0; }
             .card { flex: 1; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1; background: #f8fafc; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th, td { border: 1px solid #cbd5e1; font-size: 13px; }
@@ -1068,7 +1068,7 @@ window.printLedgerStatement = async function() {
           <p><strong>Dealer / Firm Name:</strong> ${loggedInBusiness || loggedInUser} (@${loggedInUser})</p>
           <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
 
-          <!-- 🟢 यहाँ Credit Limit, Used और Available का समरी बॉक्स जोड़ दिया गया है -->
+          <!-- 🟢 सुंदर समरी कार्ड्स (Total Limit, Used, Available) -->
           <div class="summary-grid">
             <div class="card" style="background:#f0fdf4; border-color:#bbf7d0;">
               <small style="color:#166534; font-weight:bold;">Total Limit</small>
@@ -1084,7 +1084,7 @@ window.printLedgerStatement = async function() {
             </div>
           </div>
 
-          <h3 style="margin-top: 20px; color: #102a43;">Credit Transactions History</h3>
+          <h3 style="margin-top: 25px; color: #102a43;">Credit Transactions History</h3>
           <table>
             <thead>
               <tr>
