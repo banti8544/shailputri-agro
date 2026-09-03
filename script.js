@@ -1020,11 +1020,13 @@ window.printLedgerStatement = async function() {
     orders.forEach(o => { if (o.status !== 'Cancelled' && o.status !== 'Returned') totalDebit += (o.total || 0); });
     let totalRepaid = 0;
     repayments.forEach(r => totalRepaid += (r.amount || 0));
-    const currentDue = Math.max(0, totalDebit - totalRepaid);
+    
+    const usedDue = Math.max(0, totalDebit - totalRepaid);
+    const availLimit = Math.max(0, currentCreditLimit - usedDue);
 
     const allTx = [];
     orders.forEach(o => allTx.push({ type: o.status === 'Returned' ? 'RETURN' : 'DEBIT', desc: `Order #ORD-${o.id}`, amount: o.total, date: o.created_at, status: o.status }));
-    repayments.forEach(r => allTx.push({ type: 'PAY', desc: 'Paid Due Balance', amount: r.amount, date: r.created_at, status: 'Paid' }));
+    repayments.forEach(r => allTx.push({ type: 'PAY', desc: 'Paid Due Balance (Repayment)', amount: r.amount, date: r.created_at, status: 'Paid' }));
     allTx.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     let rowsHtml = '';
@@ -1033,10 +1035,10 @@ window.printLedgerStatement = async function() {
       const isPay = (tx.type === 'PAY' || tx.type === 'RETURN');
       rowsHtml += `
         <tr>
-          <td>${date}</td>
-          <td>${tx.desc}</td>
-          <td style="color:${isPay ? '#137333' : '#c5221f'}; font-weight:bold;">${isPay ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}</td>
-          <td>${tx.status}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${date}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1;">${tx.desc}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; color:${isPay ? '#137333' : '#c5221f'}; font-weight:bold;">${isPay ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}</td>
+          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${tx.status}</td>
         </tr>
       `;
     });
@@ -1045,54 +1047,70 @@ window.printLedgerStatement = async function() {
     win.document.write(`
       <html>
         <head>
-          <title>Ledger Statement - ${loggedInBusiness || loggedInUser}</title>
+          <title>Credit Ledger Statement - ${loggedInBusiness || loggedInUser}</title>
           <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; }
-            h2 { color: #102a43; border-bottom: 2px solid #102a43; padding-bottom: 5px; margin-bottom: 5px; }
-            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin: 15px 0; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; max-width: 900px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #102a43; padding-bottom: 10px; margin-bottom: 15px; }
+            .summary-grid { display: flex; gap: 12px; margin: 15px 0; }
+            .card { flex: 1; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1; background: #f8fafc; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
-            th { background: #102a43; color: white; }
+            th, td { border: 1px solid #cbd5e1; font-size: 13px; }
+            th { background: #102a43; color: white; padding: 9px; }
             @media print { .no-print { display: none; } }
           </style>
         </head>
         <body>
-          <h2>SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h2>
-          <h3>Dealer Credit & Ledger Statement</h3>
-          <p><strong>Dealer / Firm:</strong> ${loggedInBusiness || loggedInUser} (@${loggedInUser})</p>
-          <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
-          
-          <div class="box">
-            <strong>Credit Limit:</strong> ₹${Number(currentCreditLimit).toLocaleString('en-IN')} &nbsp;|&nbsp; 
-            <strong>Outstanding Due (Udhaari):</strong> <span style="color:#c5221f; font-weight:bold;">₹${currentDue.toLocaleString('en-IN')}</span>
+          <div class="header">
+            <h2 style="margin: 0; color: #102a43;">SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h2>
+            <p style="margin: 4px 0 0 0; color: #64748b;">Dealer Credit Ledger & Transaction Statement</p>
           </div>
 
+          <p><strong>Dealer / Firm Name:</strong> ${loggedInBusiness || loggedInUser} (@${loggedInUser})</p>
+          <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+
+          <div class="summary-grid">
+            <div class="card" style="background:#f0fdf4; border-color:#bbf7d0;">
+              <small style="color:#166534; font-weight:bold;">Total Limit</small>
+              <h3 style="margin:4px 0 0 0; color:#166534;">₹${Number(currentCreditLimit + usedDue).toLocaleString('en-IN')}</h3>
+            </div>
+            <div class="card" style="background:#fef2f2; border-color:#fecaca;">
+              <small style="color:#991b1b; font-weight:bold;">Used (Udhaari)</small>
+              <h3 style="margin:4px 0 0 0; color:#991b1b;">₹${usedDue.toLocaleString('en-IN')}</h3>
+            </div>
+            <div class="card" style="background:#eff6ff; border-color:#bfdbfe;">
+              <small style="color:#1e40af; font-weight:bold;">Available Limit</small>
+              <h3 style="margin:4px 0 0 0; color:#1e40af;">₹${availLimit.toLocaleString('en-IN')}</h3>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 20px; color: #102a43;">Credit Transactions History</h3>
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Description / Order ID</th>
-                <th>Amount (₹)</th>
-                <th>Status</th>
+                <th style="width: 20%; text-align: center;">Date</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 20%; text-align: right;">Amount (₹)</th>
+                <th style="width: 15%; text-align: center;">Status</th>
               </tr>
             </thead>
             <tbody>
-              ${rowsHtml || '<tr><td colspan="4" style="text-align:center;">No transactions found.</td></tr>'}
+              ${rowsHtml || '<tr><td colspan="4" style="text-align:center; padding:15px;">No transactions found.</td></tr>'}
             </tbody>
           </table>
 
           <div style="margin-top: 30px; text-align: center;" class="no-print">
-            <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">🖨️ Print / Save as PDF</button>
+            <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 22px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:14px;">
+              🖨️ Print / Save as PDF
+            </button>
           </div>
         </body>
       </html>
     `);
     win.document.close();
   } catch (err) {
-    alert("Failed to generate ledger statement.");
+    alert("Failed to generate ledger statement PDF.");
   }
 };
-
 window.logout = function() {
   localStorage.removeItem("username");
   localStorage.removeItem("businessName");
