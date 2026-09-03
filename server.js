@@ -1232,3 +1232,50 @@ app.get('/api/busy/fetch-gst/:gstin', async (req, res) => {
     res.status(500).json({ success: false, message: "Server error during BUSY GST fetch" });
   }
 });
+// server.js के अंदर इसे जोड़ें (multer पैकेज की मदद से फाइल अपलोड हैंडल करने के लिए)
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+const fs = require('fs');
+
+app.post('/api/admin/upload-busy-dealers', upload.single('busyFile'), (req, res) => {
+  if (!req.file) {
+    return.json({ success: false, message: "कोई फाइल अपलोड नहीं की गई!" });
+  }
+
+  try {
+    const filePath = req.file.path;
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    
+    // CSV लाइन बाय लाइन पार्स करना (मानकर चल रहे हैं कि BUSY की CSV में Name, GSTIN, Address, State, Mobile कॉलम हैं)
+    const lines = fileContent.split('\n');
+    let importedCount = 0;
+
+    lines.forEach((line, index) => {
+      if (index === 0 || !line.trim()) return; // हेडर या खाली लाइन छोड़ें
+      const cols = line.split(',').map(c => c.replace(/(^"|"$)/g, '').trim());
+      
+      const name = cols[0] || '';
+      const gstin = cols[1] || '';
+      const address = cols[2] || '';
+      const state = cols[3] || 'Bihar';
+      const phone = cols[4] || '';
+
+      if (gstin && gstin.length === 15) {
+        db.run(`
+          INSERT INTO retailers (business_name, gstin, address, state, phone) 
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(gstin) DO UPDATE SET 
+          business_name = excluded.business_name,
+          address = excluded.address,
+          state = excluded.state
+        `, [name, gstin, address, state, phone]);
+        importedCount++;
+      }
+    });
+
+    fs.unlinkSync(filePath); // टेंपररी फाइल डिलीट करें
+    res.json({ success: true, message: `सफलतापूर्वक ${importedCount} डीलर्स BUSY से सिंक हो गए!` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "फाइल प्रोसेस करने में त्रुटि आई।" });
+  }
+});
