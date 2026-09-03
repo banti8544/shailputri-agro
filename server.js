@@ -261,20 +261,19 @@ app.post('/api/admin/upload-busy-dealers', upload.single('busyFile'), (req, res)
     const lines = fileContent.split('\n');
     let importedCount = 0;
 
-    // हेडर ढूंढकर कॉलम इंडेक्स पता करें ताकि आगे-पीछे कॉलम होने पर भी दिक्कत न हो
-    let nameIdx = 0, gstinIdx = 1, addressIdx = 2, stateIdx = 3, phoneIdx = 4;
+    let nameIdx = 0, gstinIdx = -1, addressIdx = -1, stateIdx = -1, phoneIdx = -1;
 
     lines.forEach((line, index) => {
       if (!line.trim()) return;
       const cols = line.split(',').map(c => c.replace(/(^"|"$)/g, '').trim());
 
-      // अगर यह हेडर लाइन है
+      // हेडर पढ़कर कॉलम पोजीशन सेट करना
       if (index === 0 || cols[0].toLowerCase().includes('name') || cols[0].toLowerCase().includes('party')) {
         cols.forEach((col, idx) => {
           const cLower = col.toLowerCase();
           if (cLower.includes('name') || cLower.includes('party')) nameIdx = idx;
           if (cLower.includes('gst')) gstinIdx = idx;
-          if (cLower.includes('address')) addressIdx = idx;
+          if (cLower.includes('address') || cLower.includes('add')) addressIdx = idx;
           if (cLower.includes('state')) stateIdx = idx;
           if (cLower.includes('mob') || cLower.includes('phone')) phoneIdx = idx;
         });
@@ -284,28 +283,37 @@ app.post('/api/admin/upload-busy-dealers', upload.single('busyFile'), (req, res)
       const name = cols[nameIdx] || cols[0] || '';
       let gstin = '';
       
-      // पूरी लाइन में 15 अंकों का GSTIN ढूँढें ताकि कॉलम गलत होने पर भी GSTIN मिल जाए
+      // पूरी लाइन में 15 अंकों का GSTIN ढूँढना
       cols.forEach(col => {
         const clean = col.toUpperCase().trim();
         if (clean.length === 15 && /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(clean)) {
           gstin = clean;
         }
       });
-      if (!gstin) gstin = (cols[gstinIdx] || '').toUpperCase().trim();
+      if (!gstin && gstinIdx !== -1) gstin = (cols[gstinIdx] || '').toUpperCase().trim();
 
-      const address = cols[addressIdx] || cols[2] || '';
-      const state = cols[stateIdx] || 'Bihar';
-      const phone = cols[phoneIdx] || cols[4] || '';
+      const address = (addressIdx !== -1 ? cols[addressIdx] : '') || cols[2] || '';
+      const state = (stateIdx !== -1 ? cols[stateIdx] : '') || 'Bihar';
+      const phone = (phoneIdx !== -1 ? cols[phoneIdx] : '') || '';
 
-      if (gstin && gstin.length === 15) {
-        db.prepare(`
-          INSERT INTO retailers (business_name, gstin, address, state, phone) 
-          VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(gstin) DO UPDATE SET 
-          business_name = excluded.business_name,
-          address = excluded.address,
-          state = excluded.state
-        `).run(name, gstin, address, state, phone);
+      if (gstin && gstin.length === 15 && name && !name.includes('Duties') && !name.includes('Expenses')) {
+        // चेक करें कि क्या यह GSTIN पहले से डेटाबेस में है या नहीं
+        const existing = db.prepare('SELECT id FROM retailers WHERE gstin = ?').get(gstin);
+
+        if (existing) {
+          // अगर है तो अपडेट करें
+          db.prepare(`
+            UPDATE retailers 
+            SET business_name = ?, address = ?, state = ? 
+            WHERE gstin = ?
+          `).run(name, address, state, gstin);
+        } else {
+          // अगर नया है तो इंसर्ट करें
+          db.prepare(`
+            INSERT INTO retailers (business_name, username, password_hash, gstin, address, state, phone, scheme_name, discount_percent, credit_limit) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Regular', 0, 50000)
+          `).run(name, 'dealer_' + Date.now(), 'no_pass', gstin, address, state, phone);
+        }
         importedCount++;
       }
     });
