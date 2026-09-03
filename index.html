@@ -717,7 +717,7 @@
       win.document.close();
     }
 
-    // 2. सही डायनेमिक Ledger Statement प्रिंट फंक्शन (समरी कार्ड्स के साथ)
+    // 2. Ledger Statement प्रिंट करने का फंक्शन
     async function printLedgerStatement() {
       if (!loggedInUser) {
         alert("Please login to print statement.");
@@ -825,6 +825,85 @@
         alert("Failed to generate ledger statement PDF.");
       }
     }
+
+    // 3. GST API Fetch Function
+    window.autoFetchGSTDetails = async function(gstin) {
+      const cleanGstin = (gstin || "").trim().toUpperCase();
+      if (cleanGstin.length !== 15) {
+        alert("कृपया सही 15 अंकों का GSTIN दर्ज करें।");
+        return;
+      }
+
+      const hint = document.getElementById("gst-state-hint");
+      if (hint) hint.textContent = "GST विवरण खोजा जा रहा है...";
+
+      try {
+        const res = await fetch(`https://api.gstify.in/verify?gstin=${cleanGstin}`);
+        const data = await res.json();
+
+        if (data && (data.businessName || data.lgnm || data.tradeName)) {
+          const firmName = data.businessName || data.tradeName || data.lgnm;
+          document.getElementById("edit-business").value = firmName;
+          
+          if (data.state) {
+            document.getElementById("edit-state").value = data.state;
+          }
+          if (hint) hint.textContent = "✅ GST विवरण सफलतापूर्वक फेच हो गया!";
+        } else {
+          const stateCode = cleanGstin.substring(0, 2);
+          const stateMap = {
+            "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", 
+            "09": "Uttar Pradesh", "07": "Delhi", "21": "Odisha", "16": "Tripura"
+          };
+          if (stateMap[stateCode]) {
+            document.getElementById("edit-state").value = stateMap[stateCode];
+          }
+          if (hint) hint.textContent = "✅ GST राज्य कोड डिटेक्ट किया गया।";
+        }
+      } catch (e) {
+        const stateCode = cleanGstin.substring(0, 2);
+        if (stateCode === "10") document.getElementById("edit-state").value = "Bihar";
+        if (hint) hint.textContent = "⚠️ नेटवर्क त्रुटि, लेकिन राज्य सेट कर दिया गया है।";
+      }
+    };
+
+    // 4. Pincode API Fetch Function
+    window.autoFetchPincodeAddress = async function(pincode, addressFieldId, stateFieldId) {
+      const cleanPin = (pincode || "").trim();
+      const hint = document.getElementById("pincode-fetch-hint");
+
+      if (cleanPin.length !== 6) return;
+
+      if (hint) hint.textContent = "पिन कोड विवरण खोजा जा रहा है...";
+
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
+        const data = await res.json();
+
+        if (data && data[0] && data[0].Status === "Success") {
+          const postOffice = data[0].PostOffice[0];
+          const areaName = postOffice.Name;
+          const district = postOffice.District;
+          const stateName = postOffice.State;
+
+          const addressBox = document.getElementById(addressFieldId);
+          if (addressBox && !addressBox.value.trim()) {
+            addressBox.value = `${areaName}, ${district}`;
+          }
+
+          const stateBox = document.getElementById(stateFieldId);
+          if (stateBox) {
+            stateBox.value = stateName;
+          }
+
+          if (hint) hint.textContent = "✅ एड्रेस मिल गया!";
+        } else {
+          if (hint) hint.textContent = "❌ अमान्य पिन कोड (Invalid Pincode)।";
+        }
+      } catch (err) {
+        if (hint) hint.textContent = "⚠️ एड्रेस फेच करने में विफल।";
+      }
+    };
   </script>
 </body>
 </html>
