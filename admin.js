@@ -89,6 +89,23 @@ async function loadAdminProducts() {
       tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No products found.</td></tr>';
       return;
     }
+    async function loadAdminProducts(retryCount = 0) {
+  try {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error('Network response not ok');
+    const data = await res.json();
+    globalProducts = data.products || [];
+    refreshCategoriesUI(globalProducts);
+    renderAdminProducts(globalProducts);
+
+    // 🔴 स्टॉक चेक करने वाला फंक्शन यहाँ जोड़ दें:
+    if (typeof checkLowStockAlerts === 'function') {
+      checkLowStockAlerts(globalProducts);
+    }
+  } catch (err) {
+    // ... एरर हैंडलिंग कोड ...
+  }
+}
 
     renderAdminProducts(globalProducts);
   } catch (err) {
