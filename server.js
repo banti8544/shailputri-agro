@@ -261,15 +261,41 @@ app.post('/api/admin/upload-busy-dealers', upload.single('busyFile'), (req, res)
     const lines = fileContent.split('\n');
     let importedCount = 0;
 
+    // हेडर ढूंढकर कॉलम इंडेक्स पता करें ताकि आगे-पीछे कॉलम होने पर भी दिक्कत न हो
+    let nameIdx = 0, gstinIdx = 1, addressIdx = 2, stateIdx = 3, phoneIdx = 4;
+
     lines.forEach((line, index) => {
-      if (index === 0 || !line.trim()) return;
+      if (!line.trim()) return;
       const cols = line.split(',').map(c => c.replace(/(^"|"$)/g, '').trim());
+
+      // अगर यह हेडर लाइन है
+      if (index === 0 || cols[0].toLowerCase().includes('name') || cols[0].toLowerCase().includes('party')) {
+        cols.forEach((col, idx) => {
+          const cLower = col.toLowerCase();
+          if (cLower.includes('name') || cLower.includes('party')) nameIdx = idx;
+          if (cLower.includes('gst')) gstinIdx = idx;
+          if (cLower.includes('address')) addressIdx = idx;
+          if (cLower.includes('state')) stateIdx = idx;
+          if (cLower.includes('mob') || cLower.includes('phone')) phoneIdx = idx;
+        });
+        return;
+      }
+
+      const name = cols[nameIdx] || cols[0] || '';
+      let gstin = '';
       
-      const name = cols[0] || '';
-      const gstin = cols[1] || '';
-      const address = cols[2] || '';
-      const state = cols[3] || 'Bihar';
-      const phone = cols[4] || '';
+      // पूरी लाइन में 15 अंकों का GSTIN ढूँढें ताकि कॉलम गलत होने पर भी GSTIN मिल जाए
+      cols.forEach(col => {
+        const clean = col.toUpperCase().trim();
+        if (clean.length === 15 && /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(clean)) {
+          gstin = clean;
+        }
+      });
+      if (!gstin) gstin = (cols[gstinIdx] || '').toUpperCase().trim();
+
+      const address = cols[addressIdx] || cols[2] || '';
+      const state = cols[stateIdx] || 'Bihar';
+      const phone = cols[phoneIdx] || cols[4] || '';
 
       if (gstin && gstin.length === 15) {
         db.prepare(`
@@ -287,10 +313,9 @@ app.post('/api/admin/upload-busy-dealers', upload.single('busyFile'), (req, res)
     try { fs.unlinkSync(filePath); } catch(e){}
     res.json({ success: true, message: `सफलतापूर्वक ${importedCount} डीलर्स BUSY से सिंक हो गए!` });
   } catch (err) {
-    res.status(500).json({ success: false, message: "फाइल प्रोसेस करने में त्रुटि आई।" });
+    res.status(500).json({ success: false, message: "फाइल प्रोसेस करने में त्रुटि: " + err.message });
   }
 });
-
 // Company Settings APIs
 app.get('/api/company-settings', (req, res) => {
   try {
