@@ -1184,3 +1184,28 @@ restoreDbFromGitHubOnStartup().then(() => {
     console.log(`Server running on port ${PORT}`);
   });
 });
+// server.js में इन रूट्स को जोड़ें
+
+// 1. GST Verify Proxy Route
+app.get('/api/proxy/gst/:gstin', async (req, res) => {
+  try {
+    const gstin = req.params.gstin;
+    const response = await fetch(`https://api.gstify.in/verify?gstin=${gstin}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "GST fetch failed from server" });
+  }
+});
+
+// 2. Pincode Lookup Proxy Route
+app.get('/api/proxy/pincode/:pincode', async (req, res) => {
+  try {
+    const pincode = req.params.pincode;
+    const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Pincode fetch failed from server" });
+  }
+});
