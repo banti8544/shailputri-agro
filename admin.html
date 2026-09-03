@@ -1189,5 +1189,57 @@
       win.document.close();
     }
   </script>
+  <!-- Admin Panel में जहाँ आप डेटा सिंक रखना चाहते हैं, वहाँ यह बॉक्स जोड़ें -->
+<div style="background: white; border: 1px solid #cbd5e1; padding: 1.5rem; border-radius: 6px; margin: 1.5rem 0;">
+  <h3 style="margin-top: 0; color: #102a43;">📂 Import Dealers from BUSY (CSV Upload)</h3>
+  <p style="font-size: 0.85rem; color: #64748b;">BUSY से एक्सपोर्ट की गई पार्टी लिस्ट (CSV) यहाँ अपलोड करें ताकि वेबसाइट पर GSTIN डालते ही नाम और एड्रेस ऑटोमैटिक आ जाए।</p>
+  
+  <form id="busy-upload-form" onsubmit="uploadBusyData(event)" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <input type="file" id="busyFile" accept=".csv" required style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+    <button type="submit" style="background: #102a43; color: white; border: none; padding: 8px 18px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+      🚀 Upload & Sync Dealers
+    </button>
+  </form>
+  <div id="upload-status-msg" style="margin-top: 8px; font-weight: bold; font-size: 0.85rem;"></div>
+</div>
+
+<script>
+  async function uploadBusyData(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById("busyFile");
+    const statusMsg = document.getElementById("upload-status-msg");
+
+    if (!fileInput.files[0]) {
+      alert("कृपया पहले CSV फाइल चुनें।");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("busyFile", fileInput.files[0]);
+
+    statusMsg.textContent = "डेटा अपलोड और सिंक हो रहा है...";
+    statusMsg.style.color = "#0284c7";
+
+    try {
+      const res = await fetch('/api/admin/upload-busy-dealers', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        statusMsg.textContent = "✅ " + data.message;
+        statusMsg.style.color = "#166534";
+        fileInput.value = "";
+      } else {
+        statusMsg.textContent = "❌ " + (data.message || "अपलोड विफल रहा।");
+        statusMsg.style.color = "#991b1b";
+      }
+    } catch (err) {
+      statusMsg.textContent = "⚠️ सर्वर एरर। कृपया पुनः प्रयास करें।";
+      statusMsg.style.color = "#991b1b";
+    }
+  }
+</script>
 </body>
 </html>
