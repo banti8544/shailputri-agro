@@ -41,12 +41,12 @@
         <label style="font-size: 0.85rem; font-weight: bold; color: #334155;">Password</label>
         <input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="off" style="width: 100%; padding: 0.6rem; margin-top: 0.3rem; box-sizing: border-box;">
       </div>
+
       <div id="low-stock-alert-banner" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:10px 15px; border-radius:6px; margin-bottom:15px; font-weight:bold;">
-  ⚠️ चेतावनी: निम्नलिखित प्रोडक्ट्स का स्टॉक कम हो गया है: <span id="low-stock-names"></span>
-</div>
+        ⚠️ चेतावनी: निम्नलिखित प्रोडक्ट्स का स्टॉक कम हो गया है: <span id="low-stock-names"></span>
+      </div>
 
       <button type="button" id="admin-submit-btn" class="btn btn-green" style="width: 100%; padding: 0.75rem; font-size: 1rem;">Login to Dashboard</button>
-      
       <div id="admin-login-msg" style="margin-top: 1rem; font-weight: bold; font-size: 0.9rem;"></div>
     </div>
   </div>
@@ -77,23 +77,23 @@
             <a href="/api/busy/export-orders?key=Shailputri@BusySync2026" class="btn" style="background: #0f766e; color: white; text-decoration: none; font-size: 0.85rem; padding: 8px 14px; font-weight: bold; border-radius: 4px;">
               📥 Export Orders to BUSY
             </a>
-
             <a href="/api/admin/backup-db" class="btn" style="background: #102a43; text-decoration: none; font-size: 0.85rem; padding: 8px 14px; border-radius: 4px;">
               📥 Download .db File
             </a>
             <a href="/api/admin/backup-json" class="btn btn-green" style="text-decoration: none; font-size: 0.85rem; padding: 8px 14px; border-radius: 4px;">
               📥 Download JSON Backup
             </a>
-            
             <label for="restore-file-input" class="btn" style="background: #d97706; cursor: pointer; font-size: 0.85rem; padding: 8px 14px; margin: 0; border-radius: 4px;">
               📤 Restore JSON
             </label>
-            <section style="margin-top: 1.5rem; background: #fff; padding: 1.5rem; border-radius: 6px; border: 1px solid #cbd5e1;">
-  <h3 style="margin-top: 0; color: #102a43;">📊 डीलर-वाइज कुल बिक्री रिपोर्ट (Dealer Sales Summary)</h3>
-  <div id="dealer-sales-summary-box">लोड हो रहा है...</div>
-</section>
             <input type="file" id="restore-file-input" accept=".json" onchange="restoreBackupFile(event)" style="display: none;">
           </div>
+        </div>
+
+        <!-- Dealer Sales Summary Box -->
+        <div style="margin-top: 1.2rem; background: #fff; padding: 1rem; border-radius: 6px; border: 1px solid #cbd5e1;">
+          <h3 style="margin-top: 0; color: #102a43; font-size: 1rem;">📊 डीलर-वाइज कुल बिक्री रिपोर्ट (Dealer Sales Summary)</h3>
+          <div id="dealer-sales-summary-box" style="font-size: 0.9rem;">लोड हो रहा है...</div>
         </div>
       </div>
       
@@ -381,6 +381,7 @@
       loadAdminProducts();
       fetchOrders();
       loadRetailers();
+      loadDealerSalesSummary();
     }
 
     function adminLogout() {
@@ -413,6 +414,7 @@
           loadAdminProducts();
           fetchOrders();
           loadRetailers();
+          loadDealerSalesSummary();
         } else {
           alert('❌ ' + (result.message || 'Restore failed'));
         }
@@ -560,7 +562,6 @@
         let rawImg = p.imageUrl || p.image_url || 'images/placeholder.png';
         let imgPath = rawImg.startsWith('http') ? rawImg : '/' + rawImg.replace(/^\/+/, '');
 
-        // Safe GST rate parsing (handles 500, 1800, etc.)
         let currentGst = 5;
         if (p.gst_rate !== undefined && p.gst_rate !== null) {
           let parsed = parseInt(p.gst_rate, 10);
@@ -594,7 +595,6 @@
             <td>
               <button type="button" id="save-btn-${p.id}" class="btn btn-green" style="padding: 4px 8px;" onclick="saveProductRow(${p.id})">Save</button>
               <button type="button" class="btn" style="background: #c5221f; padding: 4px 8px;" onclick="deleteProduct(${p.id})">Delete</button>
-              <button onclick="sendPaymentReminder('${dealer.phone}', '${dealer.business_name}', ${dealer.credit_limit})" style="background:#25D366; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;">💬 Send Reminder</button>
             </td>
           </tr>
         `;
@@ -853,7 +853,10 @@
 
       tbody.innerHTML = list.map(d => `
         <tr>
-          <td><strong>${d.business_name}</strong><br><small>@${d.username} | 📞 ${d.phone}</small></td>
+          <td>
+            <strong>${d.business_name}</strong><br><small>@${d.username} | 📞 ${d.phone}</small><br>
+            <button onclick="sendPaymentReminder('${d.phone}', '${d.business_name}', ${d.credit_limit})" style="background:#25D366; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold; margin-top:4px; font-size:0.75rem;">💬 Send Reminder</button>
+          </td>
           <td>
             State: <input type="text" id="state-${d.id}" value="${d.state || 'Bihar'}" style="width: 80px;"><br>
             GSTIN: <input type="text" id="gstin-${d.id}" value="${d.gstin || ''}" placeholder="22AAAAA0000A1Z5" style="width: 120px; margin-top: 3px;">
@@ -887,6 +890,74 @@
       });
       alert('Dealer Details Saved!');
       loadRetailers();
+    }
+
+    window.sendPaymentReminder = function(phone, businessName, creditLimit) {
+      let cleanPhone = (phone || '').replace(/\D/g, '');
+      if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+      if (!cleanPhone || cleanPhone.length < 12) {
+        alert("Invalid phone number for this dealer.");
+        return;
+      }
+
+      const message = `*🔔 भुगतान रिमाइंडर (Payment Reminder)*\n` +
+                      `प्रिय *${businessName}* जी,\n\n` +
+                      `शैलपुत्री एग्रो फूड्स प्राइवेट लिमिटेड की ओर से सूचित किया जाता है कि आपकी बकाया उधारी / क्रेडिट लिमिट का भुगतान शेष है। कृपया जल्द से जल्द भुगतान करने की कृपा करें।\n\n` +
+                      `हेल्पलाइन: +91 8544241851`;
+
+      const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+    };
+
+    async function loadDealerSalesSummary() {
+      const container = document.getElementById("dealer-sales-summary-box");
+      if (!container) return;
+
+      try {
+        const resOrders = await fetch('/api/orders');
+        const orders = await resOrders.json();
+        const resRetailers = await fetch('/api/retailers');
+        const retailers = await resRetailers.json();
+
+        const summaryMap = {};
+        retailers.forEach(r => {
+          summaryMap[r.business_name] = { totalOrders: 0, totalAmount: 0 };
+        });
+
+        (orders || []).forEach(o => {
+          if (o.status !== 'Cancelled' && o.status !== 'Returned') {
+            const firm = o.business_name || 'Cash Dealer';
+            if (!summaryMap[firm]) summaryMap[firm] = { totalOrders: 0, totalAmount: 0 };
+            summaryMap[firm].totalOrders += 1;
+            summaryMap[firm].totalAmount += (o.total || 0);
+          }
+        });
+
+        let html = `<table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                      <tr style="background:#f1f5f9;">
+                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:left;">Dealer / Firm Name</th>
+                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:center;">Total Orders</th>
+                        <th style="padding:6px; border:1px solid #cbd5e1; text-align:right;">Total Purchase (₹)</th>
+                      </tr>`;
+        
+        let hasData = false;
+        for (const [firm, data] of Object.entries(summaryMap)) {
+          if (data.totalOrders > 0) {
+            hasData = true;
+            html += `<tr><td style="padding:6px; border:1px solid #cbd5e1;"><strong>${firm}</strong></td><td style="padding:6px; border:1px solid #cbd5e1; text-align:center;">${data.totalOrders}</td><td style="padding:6px; border:1px solid #cbd5e1; text-align:right; color:#15803d; font-weight:bold;">₹${data.totalAmount.toLocaleString('en-IN')}</td></tr>`;
+          }
+        }
+
+        if (!hasData) {
+          html += `<tr><td colspan="3" style="text-align:center; padding:10px; color:#64748b;">No active dealer sales found.</td></tr>`;
+        }
+
+        html += `</table>`;
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = `<p style="color:red;">Failed to load sales summary.</p>`;
+      }
     }
 
     // 6. Master Invoice Generator (With Qty Unit)
