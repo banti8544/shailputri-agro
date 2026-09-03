@@ -73,7 +73,6 @@ async function syncUserProfile() {
   } catch (e) {}
 }
 
-// 1. Load Products & Category Sidebar (With Auto-Retry for Render wake-up)
 async function loadProducts(retryCount = 0) {
   const container = document.getElementById("catalog-grid-container");
   try {
@@ -154,7 +153,7 @@ function renderProducts(products) {
         <div class="card-info">
           <h4 title="${p.name}">${p.name}</h4>
           <div class="price-row">
-            ${(p.originalPrice && p.originalPrice > p.price) ? `<span class="orig-price">₹${p.originalPrice}</span>` : ''}
+             ${(p.originalPrice && p.originalPrice > p.price) ? `<span class="orig-price">₹${p.originalPrice}</span>` : ''}
             <span class="final-price">₹${p.price}</span> <small style="font-size:0.75rem; color:#64748b;">/ ${unitText}</small>
           </div>
           <button class="btn-add-cart" onclick="addToCartDirect(${p.id})">Add to cart</button>
@@ -170,7 +169,6 @@ function filterProducts() {
   renderProducts(filtered);
 }
 
-// 2. Quick View Modal
 function openQuickView(productId) {
   const item = allProducts.find(p => p.id === productId);
   if (!item) return;
@@ -244,7 +242,6 @@ function addToCartDirect(productId) {
   if (item) pushToCart(item, 1);
 }
 
-// 3. Cart & Stock Management
 function pushToCart(item, qty) {
   const existing = cart.find(c => c.id === item.id);
   const currentInCart = existing ? existing.qty : 0;
@@ -407,7 +404,6 @@ function updateCartUI() {
   }
 }
 
-// 4. Place Wholesale Order & Payment Gateway Trigger
 function placeOrder() {
   if (!loggedInUser) {
     alert("Please login to place wholesale orders!");
@@ -564,7 +560,6 @@ async function executeFinalOrder(finalPaymentMode) {
   }
 }
 
-// 5. Navigation
 function showSection(sectionId) {
   document.getElementById("catalog-section").style.display = (sectionId === 'catalog') ? 'block' : 'none';
   document.getElementById("cart-section").style.display = (sectionId === 'cart') ? 'block' : 'none';
@@ -576,7 +571,6 @@ function showSection(sectionId) {
   if (sectionId === 'cart') updateCartUI();
 }
 
-// 6. Ledger & Orders List
 async function loadLedgerOrders() {
   const invoiceList = document.getElementById('recent-orders-list');
   if (!invoiceList) return;
@@ -677,7 +671,6 @@ window.returnCustomerOrder = async function(orderId) {
   }
 };
 
-// 7. Master Customer/Dealer Invoice Generator (Smart Tax Fix: Seller vs Buyer State)
 async function printCustomerInvoice(orderId) {
   let order = null;
   try {
@@ -701,11 +694,8 @@ async function printCustomerInvoice(orderId) {
     config = {};
   }
 
-  // Smart State Comparison (Seller State vs Shipping / Billing State)
   const sellerState = (config.state || 'Assam').trim().toLowerCase();
   const buyerState = (order.shipping_state || order.billing_state || localStorage.getItem("state") || '').trim().toLowerCase();
-  
-  // If buyer state matches seller state (e.g. both Assam), use CGST + SGST. Otherwise IGST.
   const isSameState = buyerState ? (sellerState === buyerState) : true;
 
   const bulkThreshold = config.bulk_qty_threshold || 10;
@@ -808,97 +798,22 @@ async function printCustomerInvoice(orderId) {
         <div class="header-container">
           <img src="${config.logo_url || 'images/logo.png'}" class="logo-top" alt="Logo" onerror="this.src='images/placeholder.png'">
           <h1 style="margin: 0 0 4px 0; color: #102a43; font-size: 22px; letter-spacing: 0.5px;">${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</h1>
-          <p style="margin: 2px 0; font-size: 12px; color: #334155; font-weight: 500;">${config.address || 'Vill-gotlong Naya Basti, Ward No10 Dolabari Tezpur, Sonitpur, Assam - 784027'}</p>
-          <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;">
-            <strong>GSTIN:</strong> ${config.gstin || '18ABUCS6903N1Z5'} &nbsp;|&nbsp; <strong>FSSAI:</strong> ${config.fssai || '10424000001234'} &nbsp;|&nbsp; <strong>CIN:</strong> ${config.cin || 'U46201AS2026PTC031042'} &nbsp;|&nbsp; <strong>UDYAM:</strong> ${config.udyam || 'UDYAM-AS-25-0046796'}
-          </p>
+          <p style="margin: 2px 0; font-size: 12px; color: #334155; font-weight: 500;">${config.address || 'Tezpur, Assam - 784027'}</p>
         </div>
-
-        <h3 style="text-align: center; margin: 5px 0 12px 0; letter-spacing: 1px; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
-
-        <div class="grid-2">
-          <div class="box">
-            <strong style="color:#102a43; font-size: 13px;">🏢 BILLED TO (Buyer Details):</strong><br>
-            <strong style="font-size: 13px;">${buyerBusiness}</strong><br>
-            Address: ${buyerAddress}<br>
-            State: <strong>${buyerStateDisplay}</strong> | GSTIN: <strong>${buyerGST}</strong>
-          </div>
-          <div class="box">
-            <strong style="color:#102a43; font-size: 13px;">🚚 SHIPPED TO (Delivery Point):</strong><br>
-            Address: ${order.shipping_address}<br>
-            Delivery State: <strong>${order.shipping_state || 'Bihar'}</strong><br>
-            Contact Mobile: <strong>${order.shipping_phone || order.phone || localStorage.getItem("phone") || 'N/A'}</strong>
-          </div>
-        </div>
-
-        <table style="margin-bottom: 10px;">
-          <tr>
-            <td><strong>Invoice No:</strong> ORD-${order.id}</td>
-            <td><strong>Date:</strong> ${new Date(order.created_at).toLocaleDateString('en-GB')}</td>
-            <td><strong>Payment Mode:</strong> <span style="font-weight:bold; color:#0088cc;">${order.payment_mode}</span></td>
-            <td><strong>Place of Supply:</strong> ${order.shipping_state || 'Bihar'}</td>
-          </tr>
-        </table>
-
+        <h3 style="text-align: center; margin: 5px 0 12px 0; text-decoration: underline; color: #102a43;">TAX INVOICE (${isSameState ? 'INTRA-STATE: CGST + SGST' : 'INTER-STATE: IGST'})</h3>
         <table>
           <thead>
             <tr>
-              <th style="width: 4%;">#</th>
-              <th>Item Description</th>
-              <th style="width: 8%;">HSN</th>
-              <th style="width: 10%; text-align: center;">Qty (Unit)</th>
-              <th style="width: 10%; text-align: right;">MRP (₹)</th>
-              <th style="width: 10%; text-align: right;">Disc (₹)</th>
-              <th style="width: 12%; text-align: right;">Taxable (₹)</th>
-              <th style="width: 22%;">GST Split</th>
-              <th style="width: 14%; text-align: right;">Total (₹)</th>
+              <th>#</th><th>Item Description</th><th>HSN</th><th>Qty</th><th>Total (₹)</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-
-        <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
-          <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
-            <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
-            Bank Name: <strong>${config.bank_name || 'State Bank of India'}</strong><br>
-            Account No: <strong>${config.bank_account_no || '423589123456'}</strong><br>
-            IFSC Code: <strong>${config.bank_ifsc || 'SBIN0001234'}</strong><br>
-            Branch: <strong>${config.bank_branch || 'Purnia Main Branch'}</strong>
-          </div>
-
-          <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
-            <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
-            <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
-              <span>Total Discount Given:</span><span>-₹${totalDiscountGiven.toFixed(2)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px;">
-              <span>Net Taxable Value:</span><span>₹${netTaxableTotal.toFixed(2)}</span>
-            </div>
-            ${isSameState ? `
-              <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>CGST:</span><span>₹${totalCGST.toFixed(2)}</span></div>
-              <div style="display: flex; justify-content: space-between; color: #0369a1; margin-top: 3px;"><span>SGST:</span><span>₹${totalSGST.toFixed(2)}</span></div>
-            ` : `
-              <div style="display: flex; justify-content: space-between; color: #15803d; margin-top: 3px;"><span>IGST:</span><span>₹${totalIGST.toFixed(2)}</span></div>
-            `}
-            <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; border-top: 1.5px solid #94a3b8; margin-top: 6px; padding-top: 6px;">
-              <span>Grand Invoice Value:</span><span>₹${calculatedGrandTotal.toFixed(2)}</span>
-            </div>
-          </div>
+        <div style="text-align: right; margin-top: 15px; font-size: 15px; font-weight: bold;">
+          Grand Invoice Value: ₹${calculatedGrandTotal.toFixed(2)}
         </div>
-
-        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-          <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
-          <div style="text-align: center;">
-            <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${config.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
-            <img src="${config.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
-            <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
-          </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 12px;" class="no-print">
-          <button onclick="window.print()" style="background:#102a43; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 14px;">
-            🖨️ Print / Save PDF
-          </button>
+        <div style="margin-top: 25px; text-align: center;" class="no-print">
+          <button onclick="window.print()" style="padding: 10px 20px; background: #102a43; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🖨️ Print / Save as PDF</button>
         </div>
       </body>
     </html>
@@ -906,7 +821,7 @@ async function printCustomerInvoice(orderId) {
   win.document.close();
 }
 
-// 8. Bulletproof Free WhatsApp Notification
+// 🟢 1. WhatsApp पर ऑटोमैटिक इनवॉइस समरी भेजना (PDF-Style Text)
 window.sendWhatsAppInvoice = async function(orderId) {
   try {
     const res = await fetch('/api/orders');
@@ -915,13 +830,8 @@ window.sendWhatsAppInvoice = async function(orderId) {
     if (!order) return alert("Order details not found!");
 
     let rawPhone = (order.shipping_phone || order.phone || '').replace(/\D/g, '');
-    if (rawPhone.length === 10) {
-      rawPhone = '91' + rawPhone;
-    }
-
-    if (!rawPhone || rawPhone.length < 10) {
-      rawPhone = '918544241851';
-    }
+    if (rawPhone.length === 10) rawPhone = '91' + rawPhone;
+    if (!rawPhone || rawPhone.length < 10) rawPhone = '918544241851';
 
     let itemsList = "• Wholesale Groceries / Agro Products";
     try {
@@ -929,39 +839,38 @@ window.sendWhatsAppInvoice = async function(orderId) {
       const grouped = {};
       items.forEach(i => {
         const u = i.unit || 'case(s)';
-        if (!grouped[i.name]) grouped[i.name] = { qty: 0, unit: u };
+        if (!grouped[i.name]) grouped[i.name] = { qty: 0, unit: u, price: i.price };
         grouped[i.name].qty += 1;
       });
-      itemsList = Object.entries(grouped).map(([name, d]) => `• ${name} x ${d.qty} ${d.unit}`).join('\n');
+      itemsList = Object.entries(grouped).map(([name, d]) => `▪️ ${name} x ${d.qty} ${d.unit} (₹${d.price * d.qty})`).join('\n');
     } catch (e) {}
 
     const textMessage = 
 `*📦 SHAILPUTRI AGRO FOODS PVT LTD*
-*Tax Invoice / Order Confirmation*
---------------------------------
+*Official GST Tax Invoice / Summary*
+━━━━━━━━━━━━━━━━━━━━━
 *Order ID:* ORD-${order.id}
-*Customer:* ${order.business_name || 'Dealer'}
+*Customer/Firm:* ${order.business_name || 'Dealer Partner'}
 *Status:* ${order.status}
 *Payment Mode:* ${order.payment_mode}
-*Total Amount:* ₹${Number(order.total).toLocaleString('en-IN')}
---------------------------------
+*Shipping State:* ${order.shipping_state || 'Bihar'}
+━━━━━━━━━━━━━━━━━━━━━
 *Ordered Items:*
 ${itemsList}
---------------------------------
-Thank you for doing wholesale business with us!
-Helpdesk: +91 8544241851`;
+━━━━━━━━━━━━━━━━━━━━━
+*Grand Total Amount: ₹${Number(order.total).toLocaleString('en-IN')}*
+━━━━━━━━━━━━━━━━━━━━━
+🙏 Thank you for doing wholesale business with us!
+Helpline / Support: +91 8544241851`;
 
     const encodedMsg = encodeURIComponent(textMessage);
-    const whatsappUrl = `https://wa.me/${rawPhone}?text=${encodedMsg}`;
-
-    window.open(whatsappUrl, '_blank');
+    window.open(`https://wa.me/${rawPhone}?text=${encodedMsg}`, '_blank');
   } catch (err) {
     console.error('WhatsApp Error:', err);
     alert("Could not open WhatsApp invoice.");
   }
 };
 
-// 9. Profile Management
 function loadProfileForm() {
   if (!loggedInUser) return;
   document.getElementById("edit-username").value = loggedInUser;
@@ -996,46 +905,6 @@ async function saveCustomerProfile(e) {
   renderAuthHeader();
 }
 
-window.autoFetchGSTDetails = async function(gstin) {
-  gstin = (gstin || "").trim().toUpperCase();
-  const hint = document.getElementById("gst-state-hint");
-  const stateInput = document.getElementById("edit-state");
-  const businessInput = document.getElementById("edit-business");
-  const addressInput = document.getElementById("edit-address");
-
-  if (!gstin || gstin.length < 2) return;
-  if (hint) hint.textContent = "⏳ Verifying GSTIN...";
-
-  try {
-    const res = await fetch(`/api/fetch-gst/${gstin}`);
-    const data = await res.json();
-    if (data.success) {
-      if (stateInput && data.state) stateInput.value = data.state;
-      if (businessInput && data.firmName) businessInput.value = data.firmName;
-      if (addressInput && data.address) addressInput.value = data.address;
-      if (hint) { hint.style.color = "#15803d"; hint.textContent = `✅ ${data.firmName || data.state}`; }
-    }
-  } catch (err) {}
-};
-
-window.autoFetchPincodeAddress = async function(pincode, targetAddressId, targetStateId) {
-  pincode = (pincode || "").trim();
-  const hint = document.getElementById("pincode-fetch-hint");
-  if (pincode.length === 6 && /^\d+$/.test(pincode)) {
-    try {
-      const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-      const data = await res.json();
-      if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice.length > 0) {
-        const po = data[0].PostOffice[0];
-        document.getElementById(targetAddressId).value = `${po.Name}, ${po.District}, ${po.State} - ${pincode}`;
-        document.getElementById(targetStateId).value = po.State;
-        if (hint) { hint.style.color = "#15803d"; hint.textContent = `📍 ${po.Name}, ${po.District}`; }
-      }
-    } catch (err) {}
-  }
-};
-
-// 10. Credit Ledger & Repayment
 window.openCreditLedgerModal = async function() {
   const modal = document.getElementById("credit-modal");
   if (!modal) return;
@@ -1140,7 +1009,6 @@ window.submitCreditRepayment = async function() {
   }
 };
 
-// 11. Print Ledger Statement / PDF Function
 window.printLedgerStatement = async function() {
   if (!loggedInUser) {
     alert("Please login to print statement.");
@@ -1159,105 +1027,14 @@ window.printLedgerStatement = async function() {
     repayments.forEach(r => totalRepaid += (r.amount || 0));
     const currentDue = Math.max(0, totalDebit - totalRepaid);
 
-    const allTx = [];
-    orders.forEach(o => allTx.push({ type: o.status === 'Returned' ? 'RETURN' : 'DEBIT', desc: `Order #ORD-${o.id} (${o.payment_mode || 'Credit'})`, amount: o.total, date: o.created_at, status: o.status }));
-    repayments.forEach(r => allTx.push({ type: 'PAY', desc: 'Paid Due Balance (Repayment)', amount: r.amount, date: r.created_at, status: 'Paid' }));
-    allTx.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    let rowsHtml = '';
-    allTx.forEach((tx, idx) => {
-      const date = tx.date ? new Date(tx.date).toLocaleDateString('en-GB') : '-';
-      const isPay = (tx.type === 'PAY' || tx.type === 'RETURN');
-      rowsHtml += `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${date}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">${tx.desc}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; color: ${isPay ? '#137333' : '#c5221f'}; font-weight: bold;">
-            ${isPay ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}
-          </td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${tx.status}</td>
-        </tr>
-      `;
-    });
-
-    const businessName = loggedInBusiness || loggedInUser;
-    const phoneNum = localStorage.getItem("phone") || 'N/A';
-    const userState = localStorage.getItem("state") || 'Bihar';
-
     const win = window.open('', '_blank');
-    if (!win) {
-      alert("Popup blocked! Please allow popups for this site to print statement.");
-      return;
-    }
-
-    win.document.write(`
-      <html>
-        <head>
-          <title>Credit Ledger Statement - ${businessName}</title>
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #1e293b; font-size: 13px; max-width: 850px; margin: 0 auto; }
-            h2 { color: #102a43; text-align: center; margin-bottom: 5px; }
-            .info-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin: 15px 0; display: flex; justify-content: space-between; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th { background: #102a43; color: white; padding: 8px; border: 1px solid #102a43; font-size: 12px; text-align: left; }
-            td { border: 1px solid #cbd5e1; font-size: 12px; }
-            @media print { .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <h2>SHAILPUTRI AGRO FOODS PRIVATE LIMITED</h2>
-          <p style="text-align: center; margin: 0 0 15px 0; color: #64748b; font-size: 12px;">Official Dealer Credit Ledger & Statement</p>
-          
-          <div class="info-box">
-            <div>
-              <strong>Dealer / Firm:</strong> ${businessName} (@${loggedInUser})<br>
-              <strong>Mobile:</strong> ${phoneNum} | <strong>State:</strong> ${userState}
-            </div>
-            <div style="text-align: right;">
-              <strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}<br>
-              <strong>Current Outstanding (उधारी):</strong> <span style="color: #991b1b; font-size: 14px;">₹${currentDue.toLocaleString('en-IN')}</span>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 15%; text-align: center;">Date</th>
-                <th>Description / Transaction</th>
-                <th style="width: 20%; text-align: right;">Amount (₹)</th>
-                <th style="width: 15%; text-align: center;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml || '<tr><td colspan="5" style="text-align:center; padding:15px;">No transactions found</td></tr>'}
-            </tbody>
-          </table>
-
-          <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-            <div><small style="color: #64748b;">This is a computer-generated ledger statement.</small></div>
-            <div style="text-align: center;">
-              <strong style="font-size: 12px; color: #102a43; display: block;">For Shailputri Agro Foods Pvt Ltd</strong>
-              <div style="height: 40px;"></div>
-              <span style="font-size: 11px; color: #64748b;">Authorized Signatory</span>
-            </div>
-          </div>
-
-          <div style="margin-top: 30px; text-align: center;" class="no-print">
-            <button onclick="window.print()" style="padding: 10px 25px; background: #102a43; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">🖨️ Print / Save as PDF</button>
-          </div>
-        </body>
-      </html>
-    `);
+    win.document.write(`<html><body><h2>Ledger Statement</h2><p>Outstanding Due: ₹${currentDue}</p></body></html>`);
     win.document.close();
   } catch (err) {
-    console.error(err);
     alert("Failed to generate ledger statement.");
   }
 };
 
-// 12. Global Logout
 window.logout = function() {
   localStorage.removeItem("username");
   localStorage.removeItem("businessName");
@@ -1265,9 +1042,7 @@ window.logout = function() {
   localStorage.removeItem("address");
   localStorage.removeItem("state");
   localStorage.removeItem("gstin");
-
   loggedInUser = "";
   loggedInBusiness = "";
-
   window.location.href = "login.html";
 };
