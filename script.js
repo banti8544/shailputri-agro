@@ -1068,6 +1068,7 @@ window.printLedgerStatement = async function() {
           <p><strong>Dealer / Firm Name:</strong> ${loggedInBusiness || loggedInUser} (@${loggedInUser})</p>
           <p><strong>Statement Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
 
+          <!-- 🟢 यहाँ Credit Limit, Used और Available का समरी बॉक्स जोड़ दिया गया है -->
           <div class="summary-grid">
             <div class="card" style="background:#f0fdf4; border-color:#bbf7d0;">
               <small style="color:#166534; font-weight:bold;">Total Limit</small>
