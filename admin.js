@@ -426,7 +426,7 @@ async function saveDealerRow(id) {
   }
 }
 
-// 5. Master Invoice Generator (With Bank Details & Signature Stamp)
+// 6. Master Invoice Generator (With Qty Unit)
 function printGSTInvoice(orderId) {
   const order = globalOrders.find(o => o.id === orderId);
   if (!order) return;
@@ -455,7 +455,10 @@ function printGSTInvoice(orderId) {
   let rowsHtml = '';
 
   Object.values(grouped).forEach((item, idx) => {
-    const gstRate = item.gst_rate || 5;
+    let gstRate = item.gst_rate;
+    if (gstRate > 100) gstRate = Math.round(gstRate / 100);
+    gstRate = gstRate || 5;
+
     const catalogMRP = item.originalPrice || (item.price > 1200 ? 1380 : item.price);
 
     let finalPricePerUnit = item.price;
@@ -491,7 +494,7 @@ function printGSTInvoice(orderId) {
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${item.name}</strong></td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.hsn || '1512'}</td>
-        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty}</strong></td>
+        <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;"><strong>${item.qty} ${item.unit || 'Pcs.'}</strong></td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${catalogMRP.toFixed(2)}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; color: #166534; font-weight:bold;">-₹${discountPerCase.toFixed(2)}</td>
         <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right;">₹${baseTaxable.toFixed(2)}</td>
@@ -561,7 +564,7 @@ function printGSTInvoice(orderId) {
               <th style="width: 4%;">#</th>
               <th>Item Description</th>
               <th style="width: 8%;">HSN</th>
-              <th style="width: 6%; text-align: center;">Qty</th>
+              <th style="width: 10%; text-align: center;">Qty (Unit)</th>
               <th style="width: 10%; text-align: right;">MRP (₹)</th>
               <th style="width: 10%; text-align: right;">Disc (₹)</th>
               <th style="width: 12%; text-align: right;">Taxable (₹)</th>
@@ -573,7 +576,6 @@ function printGSTInvoice(orderId) {
         </table>
 
         <div style="display: flex; justify-content: space-between; margin-top: 15px; align-items: flex-start;">
-          <!-- Bank Details -->
           <div style="width: 380px; border: 1px dashed #94a3b8; padding: 10px; border-radius: 4px; background: #f8fafc; font-size: 11.5px;">
             <strong style="color: #102a43; font-size: 12px;">🏦 Bank & Payment Details:</strong><br>
             Bank Name: <strong>${companyConfig.bank_name || 'State Bank of India'}</strong><br>
@@ -582,7 +584,6 @@ function printGSTInvoice(orderId) {
             Branch: <strong>${companyConfig.bank_branch || 'Purnia Main Branch'}</strong>
           </div>
 
-          <!-- Total Calculations -->
           <div style="width: 350px; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; background: #f8fafc;">
             <div style="display: flex; justify-content: space-between;"><span>Gross Total (MRP):</span><span>₹${grossCatalogTotal.toFixed(2)}</span></div>
             <div style="display: flex; justify-content: space-between; color: #166534; font-weight: bold; margin-top: 2px;">
@@ -603,12 +604,12 @@ function printGSTInvoice(orderId) {
           </div>
         </div>
 
-        <div style="margin-top: 35px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
           <div><small style="color: #64748b;">Thank you for doing wholesale business with Shailputri Agro Foods!</small></div>
           <div style="text-align: center;">
-            ${companyConfig.signatory_url ? `<img src="${companyConfig.signatory_url}" style="height: 60px; max-width: 140px; object-fit: contain; margin-bottom: 4px;"><br>` : ''}
-            <strong style="font-size: 12px; color: #102a43;">For ${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PVT LTD'}</strong><br>
-            <span style="font-size: 11px; color: #64748b;">Authorized Signatory</span>
+            <strong style="font-size: 12px; color: #102a43; display: block; margin-bottom: 4px;">For ${companyConfig.company_name || 'SHAILPUTRI AGRO FOODS PRIVATE LIMITED'}</strong>
+            <img src="${companyConfig.signatory_url || 'images/SAFPL.jpg'}" style="height: 65px; width: 65px; object-fit: contain; margin: 0 auto; display: block;" alt="Stamp">
+            <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Authorized Signatory</span>
           </div>
         </div>
 
@@ -622,6 +623,8 @@ function printGSTInvoice(orderId) {
   `);
   win.document.close();
 }
+
+// WhatsApp Payment Reminder Function
 window.sendPaymentReminder = function(phone, businessName, creditLimit) {
   let cleanPhone = (phone || '').replace(/\D/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
@@ -640,6 +643,7 @@ window.sendPaymentReminder = function(phone, businessName, creditLimit) {
   window.open(url, '_blank');
 };
 
+// Dealer-wise Sales Summary Function
 async function loadDealerSalesSummary() {
   const container = document.getElementById("dealer-sales-summary-box");
   if (!container) return;
@@ -690,26 +694,19 @@ async function loadDealerSalesSummary() {
   }
 }
 
-// Initial Data Load on Page Ready
-document.addEventListener("DOMContentLoaded", () => {
-  loadCompanySettings();
-  loadAdminProducts();
-  loadOrders();
-  loadRetailers();
-  loadDealerSalesSummary();
-});
-// Initial Data Load on Page Ready
-document.addEventListener("DOMContentLoaded", () => {
-  loadCompanySettings();
-  loadAdminProducts();
-  loadOrders();
-  loadRetailers();
-  
-  if (typeof loadDealerSalesSummary === 'function') {
-    loadDealerSalesSummary();
+// Low Stock Alert Function
+function checkLowStockAlerts(productsList) {
+  const lowItems = productsList.filter(p => (p.stock || 0) <= 10);
+  const banner = document.getElementById("low-stock-alert-banner");
+  const namesSpan = document.getElementById("low-stock-names");
+
+  if (lowItems.length > 0 && banner && namesSpan) {
+    namesSpan.textContent = lowItems.map(p => `${p.name} (स्टॉक: ${p.stock})`).join(', ');
+    banner.style.display = "block";
   }
-});
-// admin.js के सबसे नीचे इसे रखें:
+}
+
+// Single Unified DOMContentLoaded Event Listener
 document.addEventListener("DOMContentLoaded", () => {
   loadCompanySettings();
   loadAdminProducts().then(() => {
