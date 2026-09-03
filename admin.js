@@ -144,6 +144,16 @@ function filterAdminProducts() {
   );
   renderAdminProducts(filtered);
 }
+function checkLowStockAlerts(productsList) {
+  const lowItems = productsList.filter(p => (p.stock || 0) <= 10);
+  const banner = document.getElementById("low-stock-alert-banner");
+  const namesSpan = document.getElementById("low-stock-names");
+
+  if (lowItems.length > 0 && banner && namesSpan) {
+    namesSpan.textContent = lowItems.map(p => `${p.name} (बचा हुआ स्टॉक: ${p.stock})`).join(', ');
+    banner.style.display = "block";
+  }
+}
 
 function previewProductImage(event, id) {
   const file = event.target.files[0];
