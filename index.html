@@ -827,44 +827,42 @@
     }
 
     // 3. GST API Fetch Function (Updated with Proxy)
-    window.autoFetchGSTDetails = async function(gstin) {
-  const cleanGstin = (gstin || "").trim().toUpperCase();
-  if (cleanGstin.length !== 15) {
-    alert("कृपया सही 15 अंकों का GSTIN दर्ज करें।");
-    return;
-  }
-
-  const hint = document.getElementById("gst-state-hint");
-  if (hint) hint.textContent = "BUSY डेटाबेस से नाम खोजा जा रहा है...";
-
-  try {
-    const res = await fetch(`/api/busy/fetch-gst/${cleanGstin}`);
-    const data = await res.json();
-
-    if (data && data.success) {
-      if (data.businessName) {
-        document.getElementById("edit-business").value = data.businessName;
+   window.autoFetchGSTDetails = async function(gstin) {
+      const cleanGstin = (gstin || "").trim().toUpperCase();
+      if (cleanGstin.length !== 15) {
+        alert("कृपया सही 15 अंकों का GSTIN दर्ज करें।");
+        return;
       }
-      if (data.state) {
-        document.getElementById("edit-state").value = data.state;
-      }
-      if (data.address) {
-        document.getElementById("edit-address").value = data.address;
-      }
-      if (hint) hint.textContent = "✅ BUSY से फर्म का नाम मिल गया!";
-    } else {
-      // यदि BUSY में न मिले तो कम से कम स्टेट कोड से राज्य सेट कर लें
+
+      const hint = document.getElementById("gst-state-hint");
+      if (hint) hint.textContent = "GST जांच की जा रही है...";
+
+      // 1. सबसे पहले स्टेट कोड से राज्य ऑटोमैटिक सेट करें
       const stateCode = cleanGstin.substring(0, 2);
-      const stateMap = { "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", "09": "Uttar Pradesh" };
+      const stateMap = {
+        "10": "Bihar", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", 
+        "09": "Uttar Pradesh", "07": "Delhi", "21": "Odisha", "16": "Tripura"
+      };
       if (stateMap[stateCode]) {
         document.getElementById("edit-state").value = stateMap[stateCode];
       }
-      if (hint) hint.textContent = "⚠️ BUSY में यह GSTIN नहीं मिला, नाम हाथ से भरें।";
-    }
-  } catch (e) {
-    if (hint) hint.textContent = "⚠️ सर्वर कनेक्ट करने में विफल।";
-  }
-};
+
+      try {
+        const res = await fetch(`/api/busy/fetch-gst/${cleanGstin}`);
+        const data = await res.json();
+
+        if (data && data.success && data.businessName) {
+          document.getElementById("edit-business").value = data.businessName;
+          if (data.address) document.getElementById("edit-address").value = data.address;
+          if (hint) hint.textContent = "✅ BUSY डेटाबेस से फर्म का नाम मिल गया!";
+        } else {
+          // यदि ऑनलाइन डेटाबेस या BUSY में न मिले तो यूजर को हाथ से नाम लिखने दें
+          if (hint) hint.textContent = "ℹ️ यह GSTIN अभी डेटाबेस में नहीं है, कृपया अपना फर्म नाम नीचे दर्ज करें।";
+        }
+      } catch (e) {
+        if (hint) hint.textContent = "ℹ️ राज्य सेट कर दिया गया है, कृपया फर्म का नाम दर्ज करें।";
+      }
+    };
     // 4. Pincode API Fetch Function (Updated with Proxy)
     window.autoFetchPincodeAddress = async function(pincode, addressFieldId, stateFieldId) {
       const cleanPin = (pincode || "").trim();
