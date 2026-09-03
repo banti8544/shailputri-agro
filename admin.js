@@ -658,9 +658,64 @@ async function loadDealerSalesSummary() {
     console.error(e);
   }
 }
+async function loadDealerSalesSummary() {
+  const container = document.getElementById("dealer-sales-summary-box");
+  if (!container) return;
 
-// Initial Data Load
-loadCompanySettings();
-loadAdminProducts();
-loadOrders();
-loadRetailers();
+  try {
+    const resOrders = await fetch('/api/orders');
+    const orders = await resOrders.json();
+    const resRetailers = await fetch('/api/retailers');
+    const retailers = await resRetailers.json();
+
+    const summaryMap = {};
+    retailers.forEach(r => {
+      summaryMap[r.business_name] = { totalOrders: 0, totalAmount: 0 };
+    });
+
+    (orders || []).forEach(o => {
+      if (o.status !== 'Cancelled' && o.status !== 'Returned') {
+        const firm = o.business_name || 'Cash Dealer';
+        if (!summaryMap[firm]) summaryMap[firm] = { totalOrders: 0, totalAmount: 0 };
+        summaryMap[firm].totalOrders += 1;
+        summaryMap[firm].totalAmount += (o.total || 0);
+      }
+    });
+
+    let html = `<table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                  <tr style="background:#f1f5f9;">
+                    <th style="padding:6px; border:1px solid #cbd5e1; text-align:left;">Dealer / Firm Name</th>
+                    <th style="padding:6px; border:1px solid #cbd5e1; text-align:center;">Total Orders</th>
+                    <th style="padding:6px; border:1px solid #cbd5e1; text-align:right;">Total Purchase (₹)</th>
+                  </tr>`;
+    
+    let hasData = false;
+    for (const [firm, data] of Object.entries(summaryMap)) {
+      if (data.totalOrders > 0) {
+        hasData = true;
+        html += `<tr><td style="padding:6px; border:1px solid #cbd5e1;"><strong>${firm}</strong></td><td style="padding:6px; border:1px solid #cbd5e1; text-align:center;">${data.totalOrders}</td><td style="padding:6px; border:1px solid #cbd5e1; text-align:right; color:#15803d; font-weight:bold;">₹${data.totalAmount.toLocaleString('en-IN')}</td></tr>`;
+      }
+    }
+    
+    if (!hasData) {
+      html += `<tr><td colspan="3" style="text-align:center; padding:10px; color:#64748b;">No active dealer sales found.</td></tr>`;
+    }
+
+    html += `</table>`;
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<p style="color:red;">Failed to load sales summary.</p>`;
+  }
+}
+
+// Initial Data Load on Page Ready
+document.addEventListener("DOMContentLoaded", () => {
+  loadCompanySettings();
+  loadAdminProducts();
+  loadOrders();
+  loadRetailers();
+  
+  if (typeof loadDealerSalesSummary === 'function') {
+    loadDealerSalesSummary();
+  }
+});
