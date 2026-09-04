@@ -935,3 +935,28 @@ app.post('/api/busy/sync-catalog', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+app.get('/api/admin/backup-json', (req, res) => {
+  try {
+    const products = db.prepare('SELECT * FROM products').all();
+    const retailers = db.prepare('SELECT * FROM retailers').all();
+    const orders = db.prepare('SELECT * FROM orders').all();
+    const settings = db.prepare('SELECT * FROM company_settings WHERE id = 1').get();
+    const repayments = db.prepare('SELECT * FROM credit_repayments').all();
+
+    const fullBackup = {
+      backup_date: new Date().toISOString(),
+      company_settings: settings,
+      products,
+      retailers,
+      orders,
+      credit_repayments: repayments
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    res.setHeader('Content-disposition', `attachment; filename=shailputri_data_${timestamp}.json`);
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(fullBackup, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate JSON backup' });
+  }
+});
