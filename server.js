@@ -843,3 +843,95 @@ restoreDbFromGitHubOnStartup().then(() => {
     console.log(`Server running on port ${PORT}`);
   });
 });
+// BUSY Direct Catalog Sync Endpoint
+app.post('/api/busy/sync-catalog', (req, res) => {
+  const secretKey = req.headers['x-busy-key'];
+  if (secretKey !== "Shailputri@BusySync2026") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: "No items provided" });
+  }
+
+  try {
+    const findStmt = db.prepare('SELECT id, price, category, image_url, hsn, gst_rate, unit FROM products WHERE UPPER(TRIM(sku)) = UPPER(TRIM(?)) OR UPPER(TRIM(name)) = UPPER(TRIM(?))');
+    
+    const updateStmt = db.prepare(`
+      UPDATE products 
+      SET stock = ?, 
+          price = CASE WHEN ? > 0 THEN ? ELSE price END,
+          category = CASE WHEN ? != '' THEN ? ELSE category END,
+          hsn = CASE WHEN ? != '' THEN ? ELSE hsn END,
+          gst_rate = CASE WHEN ? >= 0 THEN ? ELSE gst_rate END,
+          unit = CASE WHEN ? != '' THEN ? ELSE unit END,
+          image_url = CASE 
+            WHEN ? != '' AND ? NOT LIKE '%placeholder%' THEN ? 
+            ELSE image_url 
+          END
+      WHERE id = ?
+    `);
+
+    const insertStmt = db.prepare(`
+      INSERT INTO products (name, sku, pack, price, stock, category, image_url, hsn, gst_rate, unit)
+      VALUES (?, ?, 'Bulk / Bag', ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    let updated = 0;
+    let inserted = 0;
+
+    const runTransaction = db.transaction((list) => {
+      for (const item of list) {
+        const cleanName = (item.name || '').trim();
+        const cleanSku = (item.sku || cleanName).trim();
+        const stockQty = parseInt(item.stock) || 0;
+        const priceVal = parseInt(item.price) || 0;
+        const categoryVal = (item.category || 'Agro Commodities').trim();
+        const hsnVal = String(item.hsn || '').trim();
+        const cleanGst = sanitizeGst(item.gst_rate);
+        const unitVal = (item.unit || 'Pcs.').trim();
+        const imgVal = (item.image_url || '').trim() || 'images/placeholder.png';
+
+        if (!cleanName) continue;
+
+        const existing = findStmt.get(cleanSku, cleanName);
+        if (existing) {
+          updateStmt.run(
+            stockQty, 
+            priceVal, priceVal, 
+            categoryVal, categoryVal, 
+            hsnVal, hsnVal, 
+            cleanGst, cleanGst,
+            unitVal, unitVal, 
+            imgVal, imgVal, imgVal,
+            existing.id
+          );
+          updated++;
+        } else {
+          insertStmt.run(
+            cleanName, 
+            cleanSku, 
+            priceVal || 2500, 
+            stockQty, 
+            categoryVal, 
+            imgVal, 
+            hsnVal || '1006', 
+            cleanGst,
+            unitVal
+          );
+          inserted++;
+        }
+      }
+    });
+
+    runTransaction(items);
+    setImmediate(() => syncDatabaseToGitHub());
+    res.json({ 
+      success: true, 
+      message: `Successfully synced! (Updated: ${updated}, Auto-Added: ${inserted})` 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
