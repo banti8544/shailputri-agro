@@ -714,8 +714,47 @@ const updateStatusHandler = (req, res) => {
   }
 };
 
-app.put('/api/orders/:id/status', updateStatusHandler);
-app.post('/api/orders/:id/status', updateStatusHandler);
+app.post('/api/orders/:id/cancel', (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    
+    if (!order) return res.json({ success: false, message: "Order not found" });
+    if (order.status === 'Cancelled') return res.json({ success: false, message: "Already cancelled" });
+
+    // अगर आर्डर क्रेडिट पर था तो लिमिट वापस जोड़ें
+    if (order.payment_mode === 'Credit' && order.username) {
+      const cleanUser = order.username.replace(/^@/, '');
+      try {
+        db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(order.total, cleanUser, '@' + cleanUser);
+      } catch(e) {}
+    }
+
+    // स्टॉक वापस रीस्टोर करें
+    try {
+      const items = JSON.parse(order.items || '[]');
+      const restoreMap = {};
+      items.forEach(item => {
+        const pid = Number(item.id);
+        if (pid) {
+          restoreMap[pid] = (restoreMap[pid] || 0) + 1;
+        }
+      });
+
+      const restoreStmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
+      for (const pid of Object.keys(restoreMap)) {
+        restoreStmt.run(restoreMap[pid], Number(pid));
+      }
+    } catch(e) {}
+
+    db.prepare("UPDATE orders SET status = 'Cancelled' WHERE id = ?").run(orderId);
+    
+    setImmediate(() => syncDatabaseToGitHub());
+    res.json({ success: true, message: "Order cancelled successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Credit Statement APIs
 app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], (req, res) => {
