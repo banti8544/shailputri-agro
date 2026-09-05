@@ -755,6 +755,24 @@ app.post('/api/orders/:id/cancel', (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+app.post('/api/orders/:id/return', (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    
+    if (!order) return res.json({ success: false, message: "Order not found" });
+    if (order.status === 'Return Requested' || order.status === 'Returned') {
+      return res.json({ success: false, message: "Return already requested or completed" });
+    }
+
+    db.prepare("UPDATE orders SET status = 'Return Requested' WHERE id = ?").run(orderId);
+    
+    setImmediate(() => syncDatabaseToGitHub());
+    res.json({ success: true, message: "Return request submitted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Credit Statement APIs
 app.get(['/api/retailers/credit-statement', '/api/credit-statement/:username'], (req, res) => {
