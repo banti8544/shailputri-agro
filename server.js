@@ -686,10 +686,10 @@ const updateStatusHandler = (req, res) => {
     const targetStatus = status || order.status;
     const targetPayStatus = payment_status || order.payment_status;
 
-    // अगर आर्डर पहले 'Cancelled' या 'Returned' नहीं था, और अब इसे किया जा रहा है, तो स्टॉक और क्रेडिट वापस करें
+    // अगर आर्डर अब Cancelled या Returned हो रहा है (और पहले नहीं था)
     if ((targetStatus === 'Cancelled' || targetStatus === 'Returned') && order.status !== 'Cancelled' && order.status !== 'Returned' && order.status !== 'Return Requested') {
       
-      // 1. यदि क्रेडिट पर था तो क्रेडिट लिमिट वापस जोड़ें
+      // 1. यदि यह क्रेडिट ऑर्डर था, तो डीलर की क्रेडिट लिमिट (Total Limit) में पैसा वापस जोड़ें
       if (order.payment_mode === 'Credit' && order.username) {
         const cleanUser = order.username.replace(/^@/, '');
         try {
@@ -697,7 +697,7 @@ const updateStatusHandler = (req, res) => {
         } catch(e) {}
       }
 
-      // 2. स्टॉक वापस रीस्टोर करें
+      // 2. प्रोडक्ट्स का स्टॉक वापस रीस्टोर करें
       try {
         const items = JSON.parse(order.items || '[]');
         const restoreMap = {};
