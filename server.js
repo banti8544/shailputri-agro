@@ -679,19 +679,25 @@ const updateStatusHandler = (req, res) => {
   try {
     const orderId = Number(req.params.id);
     const { status, payment_status } = req.body;
+    
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const targetStatus = status || order.status;
     const targetPayStatus = payment_status || order.payment_status;
 
-    if ((targetStatus === 'Cancelled' || targetStatus === 'Returned') && order.status !== targetStatus) {
+    // अगर आर्डर पहले 'Cancelled' या 'Returned' नहीं था, और अब इसे किया जा रहा है, तो स्टॉक और क्रेडिट वापस करें
+    if ((targetStatus === 'Cancelled' || targetStatus === 'Returned') && order.status !== 'Cancelled' && order.status !== 'Returned' && order.status !== 'Return Requested') {
+      
+      // 1. यदि क्रेडिट पर था तो क्रेडिट लिमिट वापस जोड़ें
       if (order.payment_mode === 'Credit' && order.username) {
         const cleanUser = order.username.replace(/^@/, '');
         try {
           db.prepare('UPDATE retailers SET credit_limit = credit_limit + ? WHERE LOWER(username) = LOWER(?) OR LOWER(username) = LOWER(?)').run(order.total, cleanUser, '@' + cleanUser);
         } catch(e) {}
       }
+
+      // 2. स्टॉक वापस रीस्टोर करें
       try {
         const items = JSON.parse(order.items || '[]');
         const restoreMap = {};
@@ -706,13 +712,19 @@ const updateStatusHandler = (req, res) => {
       } catch(e) {}
     }
 
+    // डेटाबेस में नया स्टेटस अपडेट करें
     db.prepare('UPDATE orders SET status = ?, payment_status = ? WHERE id = ?').run(targetStatus, targetPayStatus, orderId);
+    
     setImmediate(() => syncDatabaseToGitHub());
-    res.json({ success: true, message: `Order #${orderId} updated!` });
+    res.json({ success: true, message: `Order #${orderId} updated successfully!` });
   } catch (err) {
+    console.error('Order status update error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+app.put('/api/orders/:id/status', updateStatusHandler);
+app.post('/api/orders/:id/status', updateStatusHandler);
 
 app.post('/api/orders/:id/cancel', (req, res) => {
   try {
